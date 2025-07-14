@@ -49,8 +49,5 @@ A Flask-based automation and monitoring dashboard for Monzo accounts. Features i
 - Lint: `flake8 .`
 - Imports: `isort .`
 
-## Contributing
-Pull requests are welcome! Please open an issue first to discuss major changes.
-
 ## License
 MIT 
