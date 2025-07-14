@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Sync Transactions{% endblock %}
+{% block page_title %}Sync Transactions{% endblock %}
+{% block content %}
+    <div class="accounts-columns" style="display: flex; gap: 2rem;">
+        {% for account_id in account_ids %}
+        <div class="account-column" style="flex: 1; min-width: 300px;">
+            <h2>{{ accounts[account_id].name or 'Account' }}<br><small>{{ account_id }}</small></h2>
+            {% set transactions = account_transactions[account_id] %}
+            {% if transactions %}
+                <div class="summary">
+                    <div class="summary-number">{{ transactions|length }}</div>
+                    <div class="summary-label">Transactions (last 90 days)</div>
+                </div>
+                {% for transaction in transactions %}
+                <div class="transaction">
+                    <div class="transaction-amount {{ 'positive' if transaction.amount > 0 else 'negative' }}">
+                        £{{ "%.2f"|format(transaction.amount / 100.0) }}
+                    </div>
+                    <div class="transaction-desc">{{ transaction.description or 'No description' }}</div>
+                    <div class="transaction-date">{{ transaction.created_display }}</div>
+                    {% if transaction.pot_name %}
+                        <div class="transaction-pot">
+                            Pot: {{ transaction.pot_name }}
+                            {% if transaction.pot_name == 'Unknown Pot' and transaction.pot_id_short %}
+                                <span style="font-size:0.85em; color:var(--text-tertiary);">({{ transaction.pot_id_short }}...)</span>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No transactions found.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% if error %}
+        <div class="error-message">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+{% endblock %} 

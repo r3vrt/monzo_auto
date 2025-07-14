@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Account Transactions{% endblock %}
+{% block content %}
+    <h1>Account Transactions</h1>
+    <p><strong>Account ID:</strong> {{ account_id }}</p>
+    {% if transactions %}
+        <div class="summary">
+            <div class="summary-number">{{ transactions|length }}</div>
+            <div class="summary-label">Transactions</div>
+        </div>
+        <h2>Recent Transactions</h2>
+        {% for transaction in transactions %}
+        <div class="transaction">
+            <div class="transaction-amount {{ 'positive' if transaction.amount > 0 else 'negative' }}">
+                £{{ "%.2f"|format(transaction.amount / 100.0) }}
+            </div>
+            <div class="transaction-desc">{{ transaction.description or 'No description' }}</div>
+            <div class="transaction-date">{{ transaction.created_display }}</div>
+            {% if transaction.pot_name %}
+                <div class="transaction-pot">
+                    Pot: {{ transaction.pot_name }}
+                    {% if transaction.pot_name == 'Unknown Pot' and transaction.pot_id_short %}
+                        <span style="font-size:0.85em; color:var(--text-tertiary);">({{ transaction.pot_id_short }}...)</span>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>No transactions found.</p>
+    {% endif %}
+    {% if error %}
+        <div class="error-message">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+{% endblock %} 

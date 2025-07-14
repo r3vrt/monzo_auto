@@ -1,0 +1,88 @@
+<div class="card automation-unified-card">
+  <div class="automation-unified-grid">
+    {% for section, config, schedule in [
+        ('Sweep Pots', sweep_config, sweep_schedule),
+        ('Autosorter', autosorter_config, autosorter_schedule),
+        ('Combined Sweep and Sort', combined_config, combined_schedule)
+    ] %}
+      <div class="automation-unified-section">
+        <h3 style="margin-top: 0; margin-bottom: 14px; font-size: 1.18em; color: #7fd7c4;">{{ section }}</h3>
+        {% if section == 'Sweep Pots' %}
+          <div class="automation-field-row"><span class="automation-label">Enabled:</span><span class="automation-value">{{ config.get('enabled', False) }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Source Pots:</span><span class="automation-value">{{ config.get('source_pot_names', [])|join(', ') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Target Pot:</span><span class="automation-value">{{ config.get('target_pot_name', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Minimum Amount:</span><span class="automation-value">£{{ config.get('minimum_amount', 0.0) }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Schedule:</span><span class="automation-value">{{ schedule_to_human(schedule) }}</span></div>
+        {% elif section == 'Autosorter' %}
+          <div class="automation-field-row"><span class="automation-label">Source Pot:</span><span class="automation-value">{{ config.get('source_pot', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Allocation Strategy:</span><span class="automation-value">{{ config.get('allocation_strategy', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Destination Pots:</span><span class="automation-value">{{ config.get('destination_pots', {})|length }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Priority Pots:</span><span class="automation-value">{{ config.get('priority_pots', [])|join(', ') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Goal Allocation Method:</span><span class="automation-value">{{ config.get('goal_allocation_method', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Bills Pot Enabled:</span><span class="automation-value">{{ config.get('enable_bills_pot', False) }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Bills Pot Name:</span><span class="automation-value">{{ config.get('bills_pot_name', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Savings Pot Name:</span><span class="automation-value">{{ config.get('savings_pot_name', '') }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Pay Cycle:</span><span class="automation-value">{% set pc = config.get('pay_cycle', {}) %}{% if pc %}{{ pc.get('payday', 'N/A') }}th, {{ pc.get('frequency', 'N/A')|capitalize }}{% else %}Not configured{% endif %}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Schedule:</span><span class="automation-value">{{ schedule_to_human(schedule) }}</span></div>
+        {% else %}
+          <div class="automation-field-row"><span class="automation-label">Enabled:</span><span class="automation-value">{{ config.get('enabled', False) }}</span></div>
+          <div class="automation-field-row"><span class="automation-label">Schedule:</span><span class="automation-value">{{ schedule_to_human(schedule) }}</span></div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+<div style="margin-top: 12px; text-align: left;">
+  <a href="{{ url_for('configuration.edit_automation_config') }}" class="btn btn-primary">Edit Automation Configuration</a>
+</div>
+<style>
+.automation-unified-card {
+  /* Use only the .card class for background and shadow, let global theme handle color */
+  border-radius: 12px;
+  padding: 32px 36px 28px 36px;
+  margin-bottom: 32px;
+  max-width: 100%;
+}
+.automation-unified-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+.automation-unified-section {
+  display: flex;
+  flex-direction: column;
+  font-size: 1.08em;
+  gap: 6px;
+  min-width: 0;
+}
+.automation-field-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+  gap: 12px;
+}
+.automation-label {
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+}
+.automation-value {
+  color: inherit;
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+.automation-edit-btn {
+  margin-top: 18px;
+  width: 100%;
+  font-size: 1em;
+}
+@media (max-width: 1100px) {
+  .automation-unified-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+</style> 

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}System Status{% endblock %}
+{% block page_title %}System Status{% endblock %}
+{% block content %}
+    <div class="metric">
+        <h3>API Status</h3>
+        <p><strong>Monzo API:</strong> <span class="status {{ api_status }}">{{ api_status }}</span></p>
+    </div>
+    <div class="metric">
+        <h3>Account Information</h3>
+        <p><strong>Accounts Found:</strong> {{ account_count }}</p>
+    </div>
+    <div class="metric">
+        <h3>System Metrics</h3>
+        <p><strong>Active Tasks:</strong> {{ active_tasks }}</p>
+        <p><strong>Errors:</strong> {{ errors }}</p>
+        <p><strong>Last Sync:</strong> {{ last_sync }}</p>
+    </div>
+
+    <div class="metric">
+        <h3>Task Metrics</h3>
+        <table class="table-auto w-full text-sm border border-gray-300">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="px-2 py-1 border">Task</th>
+                    <th class="px-2 py-1 border">Executions</th>
+                    <th class="px-2 py-1 border">Failures</th>
+                    <th class="px-2 py-1 border">Last Success</th>
+                    <th class="px-2 py-1 border">Last Failure</th>
+                    <th class="px-2 py-1 border">Last Error</th>
+                    <th class="px-2 py-1 border">Last Duration (s)</th>
+                    <th class="px-2 py-1 border">Avg Duration (s)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task, m in task_metrics.items() %}
+                <tr class="{% if m.failures > 0 %}bg-red-50{% elif m.executions > 0 %}bg-green-50{% endif %}">
+                    <td class="px-2 py-1 border font-semibold">{{ task }}</td>
+                    <td class="px-2 py-1 border">{{ m.executions }}</td>
+                    <td class="px-2 py-1 border">{{ m.failures }}</td>
+                    <td class="px-2 py-1 border">
+                        {% if m.last_success %}{{ m.last_success | datetime_utc }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-2 py-1 border">
+                        {% if m.last_failure %}{{ m.last_failure | datetime_utc }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-2 py-1 border text-red-700">
+                        {% if m.last_error %}{{ m.last_error }}{% else %}-{% endif %}
+                    </td>
+                    <td class="px-2 py-1 border">{{ '%.2f'|format(m.last_duration or 0.0) }}</td>
+                    <td class="px-2 py-1 border">{{ '%.2f'|format((m.total_duration / m.executions) if m.executions else 0.0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% macro datetime_utc(ts) %}
+    {{ ts | datetime_utc }}
+{% endmacro %} 

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block content %}
+    <h2 class="{{ 'success' if success else 'error' }}">{{ title }}</h2>
+    <p>{{ message }}</p>
+    
+    {% if success and auth_url %}
+    <div class="auth-url">
+        <strong>Authorization URL:</strong><br>
+        <code>{{ auth_url }}</code>
+    </div>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click the "Authorize with Monzo" button below</li>
+            <li>You'll be redirected to Monzo's authorization page</li>
+            <li>Log in to your Monzo account and authorize the application</li>
+            <li>You'll be redirected back to complete the setup</li>
+        </ol>
+    </div>
+    
+    <a href="{{ auth_url }}" class="btn">Authorize with Monzo</a>
+    {% endif %}
+    
+    {% if not success and setup_url %}
+    <a href="{{ setup_url }}" class="btn">Configure OAuth</a>
+    {% endif %}
+    
+
+{% endblock %} 

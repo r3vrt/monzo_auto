@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Monzo API Status{% endblock %}
+{% block content %}
+    <h1>Monzo API Status</h1>
+    
+    <div class="info">
+        <h3>Connection Status</h3>
+        <p><strong>Status:</strong> <span class="status {{ status }}">{{ status }}</span></p>
+        {% if accounts_found is defined %}
+        <p><strong>Accounts Found:</strong> {{ accounts_found }}</p>
+        {% endif %}
+        {% if client_configured is defined %}
+        <p><strong>Client Configured:</strong> {{ 'Yes' if client_configured else 'No' }}</p>
+        {% endif %}
+        {% if message %}
+        <p><strong>Message:</strong> {{ message }}</p>
+        {% endif %}
+    </div>
+    
+
+{% endblock %} 

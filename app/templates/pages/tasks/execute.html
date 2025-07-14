@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% block title %}{{ task_name }} Results{% endblock %}
+{% block content %}
+    <h1>{{ task_name }} Results</h1>
+    
+    {% if success %}
+        {% if task_name and 'Dry Run' in task_name %}
+        <!-- Detailed Dry Run Results -->
+        <div class="dry-run-results">
+            {% if task_name == 'Combined Dry Run (Sweep + Autosorter)' %}
+                <h2>Combined Operation Summary</h2>
+                <div class="summary-message">
+                    <strong>{{ message }}</strong>
+                </div>
+                
+                <!-- Sweep Results -->
+                {% if sweep_results %}
+                <div class="operation-section">
+                    <h3>🔄 Sweep Pots Results</h3>
+                    {% if sweep_results.error %}
+                        <div class="error-message">{{ sweep_results.error }}</div>
+                    {% elif sweep_results.enabled %}
+                        <div class="sweep-summary">
+                            <p><strong>Total Swept:</strong> £{{ "%.2f"|format(sweep_results.total_swept) }} from {{ sweep_results.swept_pots|length }} pots</p>
+                            
+                            {% if sweep_results.swept_pots %}
+                            <h4>Pots to be Emptied:</h4>
+                            <div class="transfer-list">
+                                {% for pot in sweep_results.swept_pots %}
+                                <div class="transfer-item">
+                                    <span class="pot-name">{{ pot.name }}</span>
+                                    <span class="amount">-£{{ "%.2f"|format(pot.amount) }}</span>
+                                    <span class="balance-change">£{{ "%.2f"|format(pot.previous_balance) }} → £0.00</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if sweep_results.skipped_pots %}
+                            <h4>Skipped Pots (Below Minimum):</h4>
+                            <div class="transfer-list">
+                                {% for pot in sweep_results.skipped_pots %}
+                                <div class="transfer-item skipped">
+                                    <span class="pot-name">{{ pot.name }}</span>
+                                    <span class="reason">{{ pot.reason }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if sweep_results.target_pot %}
+                            <h4>Target Pot:</h4>
+                            <div class="transfer-item target">
+                                <span class="pot-name">{{ sweep_results.target_pot.name }}</span>
+                                <span class="amount">+£{{ "%.2f"|format(sweep_results.target_pot.amount_to_add) }}</span>
+                                <span class="balance-change">£{{ "%.2f"|format(sweep_results.target_pot.current_balance) }} → £{{ "%.2f"|format(sweep_results.target_pot.new_balance) }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p>Sweep pots is disabled</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Autosorter Results -->
+                {% if autosorter_results %}
+                <div class="operation-section">
+                    <h3>📊 Autosorter Results</h3>
+                    {% if autosorter_results.error %}
+                        <div class="error-message">{{ autosorter_results.error }}</div>
+                    {% elif autosorter_results.enabled %}
+                        <div class="autosorter-summary">
+                            {% if autosorter_results.source_pot %}
+                            <h4>Source Pot: {{ autosorter_results.source_pot.name }}</h4>
+                            <div class="balance-breakdown">
+                                <div class="balance-item">
+                                    <span class="label">Original Balance:</span>
+                                    <span class="value">£{{ "%.2f"|format(autosorter_results.source_pot.original_balance) }}</span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Sweep Adjustment:</span>
+                                    <span class="value {{ 'positive' if autosorter_results.source_pot.sweep_adjustment > 0 else 'negative' }}">
+                                        £{{ "%.2f"|format(autosorter_results.source_pot.sweep_adjustment) }}
+                                    </span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Simulated Addition:</span>
+                                    <span class="value positive">+£3200.00</span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Bills Topup:</span>
+                                    <span class="value negative">-£{{ "%.2f"|format(autosorter_results.source_pot.bills_topup) }}</span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Total Allocated:</span>
+                                    <span class="value negative">-£{{ "%.2f"|format(autosorter_results.source_pot.total_allocated) }}</span>
+                                </div>
+                                <div class="balance-item final">
+                                    <span class="label">Final Balance:</span>
+                                    <span class="value">£{{ "%.2f"|format(autosorter_results.source_pot.final_balance) }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if autosorter_results.bills_calculation %}
+                            <h4>Bills Pot: {{ autosorter_results.bills_calculation.pot_name }}</h4>
+                            <div class="balance-breakdown">
+                                <div class="balance-item">
+                                    <span class="label">Current Balance:</span>
+                                    <span class="value">£{{ "%.2f"|format(autosorter_results.bills_calculation.current_balance) }}</span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Outgoings (Simulated):</span>
+                                    <span class="value">£{{ "%.2f"|format(autosorter_results.bills_calculation.outgoings) }}</span>
+                                </div>
+                                <div class="balance-item">
+                                    <span class="label">Topup Needed:</span>
+                                    <span class="value positive">+£{{ "%.2f"|format(autosorter_results.bills_calculation.topup_needed) }}</span>
+                                </div>
+                                <div class="balance-item final">
+                                    <span class="label">New Balance:</span>
+                                    <span class="value">£{{ "%.2f"|format(autosorter_results.bills_calculation.new_balance) }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if autosorter_results.allocations %}
+                            <h4>Destination Allocations:</h4>
+                            <div class="transfer-list">
+                                {% for pot_name, details in autosorter_results.allocations.items() %}
+                                {% if details.amount > 0.01 %}
+                                <div class="transfer-item">
+                                    <span class="pot-name">{{ pot_name }}</span>
+                                    <span class="amount">+£{{ "%.2f"|format(details.amount) }}</span>
+                                    <span class="allocation-type">
+                                        {% if details.type == 'percentage' %}
+                                            {{ details.original_value }}%
+                                        {% elif details.type == 'fixed' %}
+                                            Fixed
+                                        {% elif details.type == 'priority_goal' %}
+                                            Priority Goal
+                                        {% elif details.type == 'goal_even' %}
+                                            Goal (Even)
+                                        {% elif details.type == 'goal_relative' %}
+                                            Goal ({{ "%.1f"|format(details.share_percentage) }}%)
+                                        {% endif %}
+                                    </span>
+                                    {% if details.scaled %}
+                                    <span class="scaled-note">(Scaled)</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p>Autosorter is disabled</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if autosorter_results and autosorter_results.bills_calculation and autosorter_results.bills_calculation.bills_transactions %}
+                <div class="operation-section">
+                    <h4>Bills Pot Outgoings (Transaction Breakdown)</h4>
+                    <table class="table">
+                        <thead>
+                            <tr><th>Date</th><th>Description</th><th>Amount (£)</th><th>Running Total (£)</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for txn in autosorter_results.bills_calculation.bills_transactions %}
+                            <tr>
+                                <td>{{ txn.date }}</td>
+                                <td>{{ txn.description }}</td>
+                                <td>{{ '%.2f'|format(txn.amount) }}</td>
+                                <td>{{ '%.2f'|format(txn.running_total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                
+            {% else %}
+                <!-- Individual Dry Run Results -->
+                <div class="summary-message">
+                    <strong>{{ message }}</strong>
+                </div>
+            {% endif %}
+        </div>
+        {% else %}
+            <!-- Regular Task Results -->
+            {% if balances %}
+            <!-- Summary -->
+            <div class="summary">
+                <div class="summary-number">{{ account_count }}</div>
+                <div class="summary-label">Accounts Checked</div>
+            </div>
+            
+            <div class="summary">
+                <div class="summary-number">£{{ "%.2f"|format(total_balance) }}</div>
+                <div class="summary-label">Total Balance</div>
+            </div>
+            
+            <!-- Individual account balances -->
+            <h2>Account Balances</h2>
+            {% for balance in balances %}
+            <div class="balance-card">
+                <div class="account-name">{{ balance.account_name }}</div>
+                <div class="account-type">{{ balance.account_type }}</div>
+                <div class="balance-amount">£{{ "%.2f"|format(balance.balance) }}</div>
+                <div class="currency">{{ balance.currency }}</div>
+                {% if balance.spend_today != 0 %}
+                <div class="spend-today {{ 'positive' if balance.spend_today > 0 else 'negative' }}">
+                    Today: £{{ "%.2f"|format(balance.spend_today) }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+            
+            {% if message %}
+            <div class="message">
+                <strong>Success:</strong> {{ message }}
+            </div>
+            {% endif %}
+        {% endif %}
+    {% else %}
+        <div class="error-message">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+    
+    <div style="margin-top: 30px; text-align: center;">
+        <a href="/tasks/" class="btn">Back to Tasks</a>
+        <a href="/" class="btn">Go to Overview</a>
+        <a href="/accounts/" class="btn btn-secondary">View Accounts</a>
+    </div>
+
+<style>
+.dry-run-results {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.operation-section {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.operation-section h3 {
+    margin-top: 0;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--accent-primary);
+    padding-bottom: 10px;
+}
+
+.summary-message {
+    background: var(--status-success-bg);
+    border: 1px solid var(--status-success-text);
+    border-radius: 4px;
+    padding: 15px;
+    margin: 20px 0;
+    font-size: 1.1em;
+}
+
+.transfer-list {
+    margin: 15px 0;
+}
+
+.transfer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+}
+
+.transfer-item.target {
+    background: var(--status-success-bg);
+    border-color: var(--accent-primary);
+}
+
+.transfer-item.skipped {
+    background: var(--status-warning-bg);
+    border-color: var(--accent-warning);
+    color: var(--status-warning-text);
+}
+
+.pot-name {
+    font-weight: bold;
+    flex: 1;
+}
+
+.amount {
+    font-weight: bold;
+    margin: 0 15px;
+}
+
+.amount.positive {
+    color: var(--accent-success);
+}
+
+.amount.negative {
+    color: var(--accent-danger);
+}
+
+.balance-change {
+    color: var(--text-tertiary);
+    font-size: 0.9em;
+}
+
+.allocation-type {
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    margin: 0 10px;
+}
+
+.scaled-note {
+    color: var(--accent-danger);
+    font-size: 0.8em;
+    font-style: italic;
+}
+
+.balance-breakdown {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.balance-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.balance-item:last-child {
+    border-bottom: none;
+}
+
+.balance-item.final {
+    border-top: 2px solid var(--accent-primary);
+    font-weight: bold;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+.balance-item .label {
+    color: var(--text-primary);
+}
+
+.balance-item .value {
+    font-weight: bold;
+}
+
+.balance-item .value.positive {
+    color: var(--accent-success);
+}
+
+.balance-item .value.negative {
+    color: var(--accent-danger);
+}
+
+.reason {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+</style>
+{% endblock %} 

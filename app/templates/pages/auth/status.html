@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+    <h2 class="{{ 'success' if success else 'error' }}">{{ title }}</h2>
+    <p>{{ message }}</p>
+    
+    {% if success and user %}
+    <div class="user-info">
+        <h3>User Information:</h3>
+        <p><strong>User ID:</strong> {{ user.get('id', 'N/A') }}</p>
+        <p><strong>Email:</strong> {{ user.get('email', 'N/A') }}</p>
+        <p><strong>Name:</strong> {{ user.get('name', 'N/A') }}</p>
+    </div>
+    {% endif %}
+    
+    <div class="actions">
+        {% if success %}
+            <a href="{{ home_url }}" class="btn">Go to Overview</a>
+            <a href="/tasks/" class="btn">View Tasks</a>
+            <a href="/auth/logout" class="btn btn-secondary">Logout</a>
+        {% else %}
+            <a href="/auth/setup" class="btn">Configure OAuth</a>
+            <a href="/auth/login" class="btn">Login</a>
+
+        {% endif %}
+    </div>
+{% endblock %} 

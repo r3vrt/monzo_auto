@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Edit Automation Configuration{% endblock %}
+{% block page_title %}Edit Automation Configuration{% endblock %}
+{% block content %}
+<div class="card automation-unified-card automation-card-narrow">
+    <form method="POST" action="{{ url_for('configuration.edit_automation_config') }}">
+        {% if message %}
+            <div class="alert alert-success" style="margin-bottom: 24px;">{{ message }}</div>
+        {% endif %}
+        <h3 class="section-header">Sweep Pots</h3>
+        <div class="form-group">
+            <label for="sweep_enabled">
+                <input type="checkbox" id="sweep_enabled" name="sweep_enabled" {% if sweep_config.get('enabled', False) %}checked{% endif %}>
+                Enable Sweep Pots
+            </label>
+            <small class="form-text">Automatically move balances from source pots to target pot.</small>
+        </div>
+        <div class="form-group">
+            <label for="sweep_source_pot_names">Source Pots (comma-separated):</label>
+            <input type="text" class="form-control" id="sweep_source_pot_names" name="sweep_source_pot_names" value="{{ sweep_config.get('source_pot_names', [])|join(', ') }}">
+            <small class="form-text">Names of pots to sweep from (e.g., "Side, Bills").</small>
+        </div>
+        <div class="form-group">
+            <label for="sweep_target_pot_name">Target Pot:</label>
+            <input type="text" class="form-control" id="sweep_target_pot_name" name="sweep_target_pot_name" value="{{ sweep_config.get('target_pot_name', '') }}">
+            <small class="form-text">Name of the pot to move balances to (e.g., "Held").</small>
+        </div>
+        <div class="form-group">
+            <label for="sweep_minimum_amount">Minimum Amount (£):</label>
+            <input type="number" class="form-control" id="sweep_minimum_amount" name="sweep_minimum_amount" min="0" step="0.01" value="{{ sweep_config.get('minimum_amount', 0.0) }}">
+            <small class="form-text">Only sweep pots with balance above this amount (0 = sweep all).</small>
+        </div>
+        <hr>
+        <h3 class="section-header">Autosorter</h3>
+        <div class="form-group">
+            <label for="autosorter_source_pot">Source Pot:</label>
+            <input type="text" class="form-control" id="autosorter_source_pot" name="autosorter_source_pot" value="{{ autosorter_config.get('source_pot', '') }}">
+            <small class="form-text">Name or ID of the pot to distribute from.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_allocation_strategy">Allocation Strategy:</label>
+            <select class="form-control" id="autosorter_allocation_strategy" name="autosorter_allocation_strategy">
+                <option value="free_selection" {% if autosorter_config.get('allocation_strategy', '') == 'free_selection' %}selected{% endif %}>Free Selection</option>
+                <option value="all_goals" {% if autosorter_config.get('allocation_strategy', '') == 'all_goals' %}selected{% endif %}>All Pots with Goals</option>
+                <option value="priority_goals" {% if autosorter_config.get('allocation_strategy', '') == 'priority_goals' %}selected{% endif %}>Priority Pots + Goals</option>
+            </select>
+            <small class="form-text">How to allocate funds to destination pots.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_destination_pots">Destination Pots (comma-separated):</label>
+            <input type="text" class="form-control" id="autosorter_destination_pots" name="autosorter_destination_pots" value="{{ autosorter_config.get('destination_pots', {})|list|join(', ') }}">
+            <small class="form-text">Names of pots to distribute to.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_priority_pots">Priority Pots (comma-separated):</label>
+            <input type="text" class="form-control" id="autosorter_priority_pots" name="autosorter_priority_pots" value="{{ autosorter_config.get('priority_pots', [])|join(', ') }}">
+            <small class="form-text">Priority pots to fill first.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_goal_allocation_method">Goal Allocation Method:</label>
+            <select class="form-control" id="autosorter_goal_allocation_method" name="autosorter_goal_allocation_method">
+                <option value="even" {% if autosorter_config.get('goal_allocation_method', '') == 'even' %}selected{% endif %}>Even</option>
+                <option value="priority" {% if autosorter_config.get('goal_allocation_method', '') == 'priority' %}selected{% endif %}>Priority</option>
+            </select>
+            <small class="form-text">How to allocate to pots with goals.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_enable_bills_pot">
+                <input type="checkbox" id="autosorter_enable_bills_pot" name="autosorter_enable_bills_pot" {% if autosorter_config.get('enable_bills_pot', False) %}checked{% endif %}>
+                Enable Bills Pot
+            </label>
+            <small class="form-text">Enable bills pot for fixed expenses.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_bills_pot_name">Bills Pot Name:</label>
+            <input type="text" class="form-control" id="autosorter_bills_pot_name" name="autosorter_bills_pot_name" value="{{ autosorter_config.get('bills_pot_name', '') }}">
+            <small class="form-text">Name of the bills pot.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_savings_pot_name">Savings Pot Name:</label>
+            <input type="text" class="form-control" id="autosorter_savings_pot_name" name="autosorter_savings_pot_name" value="{{ autosorter_config.get('savings_pot_name', '') }}">
+            <small class="form-text">Name of the savings pot.</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_payday">Payday (Day of Month):</label>
+            <input type="number" class="form-control" id="autosorter_payday" name="autosorter_payday" value="{{ autosorter_config.get('pay_cycle', {}).get('payday', '') }}" min="1" max="31">
+            <small class="form-text">The day of the month you get paid on (e.g., 15 for the 15th, 28 for the 28th)</small>
+        </div>
+        <div class="form-group">
+            <label for="autosorter_frequency">Pay Cycle Frequency:</label>
+            <select class="form-control" id="autosorter_frequency" name="autosorter_frequency">
+                <option value="monthly" {% if autosorter_config.get('pay_cycle', {}).get('frequency', 'monthly') == 'monthly' %}selected{% endif %}>Monthly</option>
+                <option value="biweekly" {% if autosorter_config.get('pay_cycle', {}).get('frequency', 'monthly') == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                <option value="custom" {% if autosorter_config.get('pay_cycle', {}).get('frequency', 'monthly') == 'custom' %}selected{% endif %}>Custom</option>
+            </select>
+            <small class="form-text">How often you are paid (used to determine the bills period).</small>
+        </div>
+        <hr>
+        <h3 class="section-header">Combined Sweep and Sort</h3>
+        <div class="form-group">
+            <label for="combined_enabled">
+                <input type="checkbox" id="combined_enabled" name="combined_enabled" {% if combined_config.get('enabled', False) %}checked{% endif %}>
+                Enable Combined Automation
+            </label>
+            <small class="form-text">Enable the combined sweep and sort automation task.</small>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+            <a href="{{ url_for('configuration.config_overview') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+<style>
+.automation-unified-card.automation-card-narrow {
+  max-width: 600px;
+  margin: 0 auto 32px auto;
+  padding: 32px 28px 28px 28px;
+}
+</style>
+{% endblock %} 

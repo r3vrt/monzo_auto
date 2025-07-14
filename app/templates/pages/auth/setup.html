@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Monzo OAuth Setup{% endblock %}
+{% block content %}
+    <h2>Monzo OAuth Setup</h2>
+    {% if message %}
+        <div class="msg {{ 'success' if success else 'error' }}">{{ message }}</div>
+    {% endif %}
+    <form method="post">
+        <div class="form-group">
+            <label for="client_id">Client ID</label>
+            <input type="text" id="client_id" name="client_id" required value="{{ client_id or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="client_secret">Client Secret</label>
+            <input type="text" id="client_secret" name="client_secret" required value="{{ client_secret or '' }}">
+        </div>
+        <div class="form-group">
+            <label for="redirect_uri">Redirect URI</label>
+            <input type="url" id="redirect_uri" name="redirect_uri" required value="{{ redirect_uri or 'http://localhost:5000/auth/callback' }}">
+        </div>
+        <button type="submit" class="btn">Save Credentials</button>
+    </form>
+    <p style="margin-top:20px;">Instructions:<br>
+    1. Go to <a href="https://developers.monzo.com/" target="_blank">Monzo Developers</a> and create an OAuth app.<br>
+    2. Set the redirect URI to <code>http://localhost:5000/auth/callback</code>.<br>
+    3. Copy your Client ID and Client Secret here.<br>
+    4. Click <b>Save Credentials</b>.<br>
+    5. Then <a href="/auth/login">start the OAuth flow</a>.
+    </p>
+{% endblock %} 

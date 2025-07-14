@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Account Display Configuration{% endblock %}
+{% block content %}
+<div class="card automation-unified-card accounts-card-narrow">
+<h1>Account Display Configuration</h1>
+<p>Select which accounts you want to display and give them custom names:</p>
+<form method="POST" action="{{ url_for('configuration.update_accounts_config') }}">
+    <div class="account-list">
+        {% for account in accounts %}
+            <div class="automation-field-row" style="border-bottom: 1px solid #eee; padding: 10px 0; align-items: flex-start;">
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 220px;">
+                    <input type="checkbox" id="account_{{ account.id }}" name="account_ids" value="{{ account.id }}" {% if account.id in selected_ids %}checked{% endif %}>
+                    <label for="account_{{ account.id }}" class="automation-label" style="font-weight: bold; margin-bottom: 0;">
+                        {{ account.name or 'Unnamed' }} ({{ account.type }})
+                    </label>
+                </div>
+                <div style="flex: 1 1 0; min-width: 0;">
+                    <label for="name_{{ account.id }}" style="font-size: 0.95em; color: #333; margin-bottom: 2px;">Custom Name:</label>
+                    <input type="text" 
+                           id="name_{{ account.id }}" 
+                           name="account_name_{{ account.id }}" 
+                           value="{{ account_names.get(account.id, '') }}" 
+                           placeholder="Enter custom name (optional)"
+                           class="form-control"
+                           style="width: 100%; padding: 5px; margin-top: 2px; border: 1px solid #ddd; border-radius: 3px;">
+                    <small style="color: #666;">ID: {{ account.id }}</small>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="form-actions" style="margin-top: 20px; text-align: left;">
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+        <a href="{{ url_for('configuration.config_overview') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% if error %}
+    <div class="error-message">{{ error }}</div>
+{% endif %}
+</div>
+<style>
+.automation-unified-card.accounts-card-narrow {
+  max-width: 600px;
+  margin: 0 auto 32px auto;
+  padding: 32px 28px 28px 28px;
+}
+.automation-field-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-bottom: 0;
+  gap: 18px;
+}
+.automation-label {
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  min-width: 120px;
+  margin-bottom: 0;
+}
+.form-control {
+  flex: 1 1 0;
+  min-width: 0;
+}
+</style>
+{% endblock %} 

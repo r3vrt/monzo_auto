@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}System Health{% endblock %}
+{% block content %}
+    <h1>System Health</h1>
+    
+    <div class="info">
+        <h3>Service Status</h3>
+        <p><strong>Service:</strong> {{ service }}</p>
+        <p><strong>Version:</strong> {{ version }}</p>
+        <p><strong>Status:</strong> <span class="status {{ status }}">{{ status }}</span></p>
+    </div>
+    
+
+{% endblock %} 

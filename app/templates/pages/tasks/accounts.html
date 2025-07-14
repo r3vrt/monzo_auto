@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Monzo Accounts{% endblock %}
+{% block content %}
+<div class="container">
+    <h1>Monzo Accounts</h1>
+    {% if success %}
+        {% if accounts %}
+            <p>Your Monzo accounts:</p>
+            {% for account in accounts %}
+            <div class="account">
+                <h3>{{ account.name }}</h3>
+                <p><strong>Account ID:</strong> {{ account.id }}</p>
+                <p><strong>Type:</strong> {{ account.type }}</p>
+                <p><strong>Currency:</strong> {{ account.currency }}</p>
+                <p class="balance">Balance: {{ account.balance }}</p>
+                <div class="actions">
+                    <a href="/tasks/accounts/{{ account.id }}/transactions" class="btn">View Transactions</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No accounts found.</p>
+        {% endif %}
+    {% else %}
+        <h2 class="error">Error</h2>
+        <p>{{ error }}</p>
+    {% endif %}
+    <div style="margin-top: 30px;">
+        <a href="/tasks/" class="btn">Back to Tasks</a>
+        <a href="{{ home_url }}" class="btn btn-secondary">Go Home</a>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtualenv
+venv/
+.env
+.venv/
+
+# Database
+*.db
+*.sqlite
+profiler.sqlite
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Config (real secrets, not examples)
+config/*.json
+!config/*.example.json
+
+# Backup and temp files
+*.bak
+*.backup*
+*~
+.DS_Store
+
+# Test output
+.coverage
+htmlcov/
+
+# Flask profiler
+flask_profiler/
+
+# Ignore local test/debug scripts
+debug_*.py
+test_*.py 
+.cursorrules
+migrate_to_database.py

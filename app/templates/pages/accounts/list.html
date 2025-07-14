@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Monzo Accounts{% endblock %}
+{% block content %}
+    <h1>Monzo Accounts</h1>
+    {% if accounts %}
+        <p>Your Monzo accounts:</p>
+        {% for account in accounts %}
+        <div class="account">
+            <h3>{{ account.name }}</h3>
+            <p><strong>Account ID:</strong> {{ account.id }}</p>
+            <p><strong>Type:</strong> {{ account.type }}</p>
+            <p><strong>Currency:</strong> {{ account.currency }}</p>
+            <p class="account-balance {{ 'positive' if account.balance >= 0 else 'negative' }}"
+               style="color: {{ '#27ae60' if account.balance >= 0 else '#e74c3c' }};">
+                Balance: £{{ '%.2f' | format(account.balance / 100) }}
+            </p>
+            <div class="actions">
+                <a href="/tasks/accounts/{{ account.id }}/transactions" class="btn">View Transactions</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>No accounts found.</p>
+    {% endif %}
+    {% if error %}
+        <h2 class="error">Error</h2>
+        <p>{{ error }}</p>
+    {% endif %}
+
+{% endblock %} 

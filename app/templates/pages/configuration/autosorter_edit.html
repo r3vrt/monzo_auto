@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Edit Autosorter Configuration{% endblock %}
+{% block content %}
+<div class="config-form">
+    <h1>Edit Autosorter Configuration</h1>
+    <form method="POST" action="{{ url_for('configuration.update_autosorter_config') }}">
+        <div class="form-group">
+            <label for="source_pot">Source Pot:</label>
+            <input type="text" id="source_pot" name="source_pot" value="{{ config.source_pot }}" class="form-control">
+            <small class="form-text">Name or ID of the pot to distribute from</small>
+        </div>
+        
+        <div class="form-group">
+            <label>Destination Pot Allocation Strategy:</label><br>
+            <label><input type="radio" name="allocation_strategy" value="free_selection" {% if config.allocation_strategy == 'free_selection' or not config.allocation_strategy %}checked{% endif %}> Free Selection</label><br>
+            <small class="form-text">Manually specify pots and amounts/percentages</small>
+            
+            <label><input type="radio" name="allocation_strategy" value="all_goals" {% if config.allocation_strategy == 'all_goals' %}checked{% endif %}> All Pots with Goals</label><br>
+            <small class="form-text">Automatically distribute to all pots that have goals set</small>
+            
+            <label><input type="radio" name="allocation_strategy" value="priority_goals" {% if config.allocation_strategy == 'priority_goals' %}checked{% endif %}> Priority Pots + Goals</label><br>
+            <small class="form-text">Fill priority pots to 100% first, then distribute to other pots with goals</small>
+        </div>
+        
+        <div class="form-group" id="free-selection-group" {% if config.allocation_strategy != 'free_selection' and config.allocation_strategy %}style="display:none;"{% endif %}>
+            <label for="destination_pots">Destination Pots (Free Selection):</label>
+            <textarea id="destination_pots" name="destination_pots" rows="5" class="form-control">{% for pot, info in config.destination_pots.items() %}{{ pot }}:{{ info.amount }}{% if info.is_percent %}%{% endif %}
+{% endfor %}</textarea>
+            <small class="form-text">One per line. Use <code>pot_name:amount</code> for fixed (e.g., Bills:10.00) or <code>pot_name:percent%</code> for percentage (e.g., Savings:25%).</small>
+        </div>
+        
+        <div class="form-group" id="priority-pots-group" {% if config.allocation_strategy != 'priority_goals' %}style="display:none;"{% endif %}>
+            <label for="priority_pots">Priority Pots (100% Goal Fill):</label>
+            <textarea id="priority_pots" name="priority_pots" rows="3" class="form-control">{% for pot in config.priority_pots %}{{ pot }}
+{% endfor %}</textarea>
+            <small class="form-text">One pot name per line. These pots will be filled to 100% of their goal before distributing to other pots.</small>
+        </div>
+        
+        <div class="form-group" id="goal-allocation-method-group" {% if config.allocation_strategy == 'free_selection' or not config.allocation_strategy %}style="display:none;"{% endif %}>
+            <label>Goal Allocation Method:</label><br>
+            <label><input type="radio" name="goal_allocation_method" value="even" {% if config.goal_allocation_method == 'even' %}checked{% endif %}> Even split across pots with goals</label><br>
+            <small class="form-text">Each pot with a goal receives an equal share of the total.</small>
+            <label><input type="radio" name="goal_allocation_method" value="relative" {% if config.goal_allocation_method == 'relative' %}checked{% endif %}> Relative to amount left to goal</label><br>
+            <small class="form-text">Each pot receives a share proportional to how much it needs to reach its goal.</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="enable_bills_pot">
+                <input type="checkbox" id="enable_bills_pot" name="enable_bills_pot" {% if config.enable_bills_pot %}checked{% endif %}>
+                Enable Bills Pot Feature
+            </label>
+            <small class="form-text">If checked, the bills pot will be filled with outgoings before distributing to other pots</small>
+        </div>
+        <div class="form-group" id="bills-pot-group" {% if not config.enable_bills_pot %}style="display:none;"{% endif %}>
+            <label for="bills_pot_name">Bills Pot Name:</label>
+            <input type="text" id="bills_pot_name" name="bills_pot_name" value="{{ config.bills_pot_name }}" class="form-control">
+            <small class="form-text">Name of the pot to be filled for bills each cycle</small>
+        </div>
+        <div class="form-group" id="pay-cycle-group" {% if not config.enable_bills_pot %}style="display:none;"{% endif %}>
+            <label for="payday">Payday (Day of Month):</label>
+            <input type="number" id="payday" name="payday" value="{{ config.pay_cycle.payday }}" min="1" max="31" class="form-control">
+            <small class="form-text">The day of the month you get paid on (e.g., 15 for the 15th, 28 for the 28th)</small>
+        </div>
+        <div class="form-group" id="frequency-group" {% if not config.enable_bills_pot %}style="display:none;"{% endif %}>
+            <label for="frequency">Pay Cycle Frequency:</label>
+            <select id="frequency" name="frequency" class="form-control">
+                <option value="monthly" {% if config.pay_cycle.frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                <option value="biweekly" {% if config.pay_cycle.frequency == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                <option value="custom" {% if config.pay_cycle.frequency == 'custom' %}selected{% endif %}>Custom</option>
+            </select>
+            <small class="form-text">How often you are paid (used to determine the bills period)</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="savings_pot_name">Savings Pot Name (Optional):</label>
+            <input type="text" id="savings_pot_name" name="savings_pot_name" value="{{ config.savings_pot_name }}" class="form-control">
+            <small class="form-text">Name of the pot to receive any remaining balance after all other allocations. Leave empty to keep remaining balance in source pot.</small>
+        </div>
+        
+        <script>
+        // Show/hide fields based on allocation strategy
+        document.addEventListener('DOMContentLoaded', function() {
+            var allocationStrategy = document.querySelectorAll('input[name="allocation_strategy"]');
+            var freeSelectionGroup = document.getElementById('free-selection-group');
+            var priorityPotsGroup = document.getElementById('priority-pots-group');
+            var goalAllocationMethodGroup = document.getElementById('goal-allocation-method-group');
+            
+            function toggleAllocationFields() {
+                var selectedStrategy = document.querySelector('input[name="allocation_strategy"]:checked').value;
+                
+                // Hide all groups first
+                freeSelectionGroup.style.display = 'none';
+                priorityPotsGroup.style.display = 'none';
+                goalAllocationMethodGroup.style.display = 'none';
+                
+                // Show relevant groups
+                if (selectedStrategy === 'free_selection') {
+                    freeSelectionGroup.style.display = '';
+                } else if (selectedStrategy === 'all_goals') {
+                    goalAllocationMethodGroup.style.display = '';
+                } else if (selectedStrategy === 'priority_goals') {
+                    priorityPotsGroup.style.display = '';
+                    goalAllocationMethodGroup.style.display = '';
+                }
+            }
+            
+            allocationStrategy.forEach(function(radio) {
+                radio.addEventListener('change', toggleAllocationFields);
+            });
+            toggleAllocationFields();
+            
+            // Show/hide bills pot fields based on enable_bills_pot
+            var enableBillsPot = document.getElementById('enable_bills_pot');
+            var billsPotGroup = document.getElementById('bills-pot-group');
+            var payCycleGroup = document.getElementById('pay-cycle-group');
+            var frequencyGroup = document.getElementById('frequency-group');
+            function toggleBillsPotFields() {
+                if (enableBillsPot.checked) {
+                    billsPotGroup.style.display = '';
+                    payCycleGroup.style.display = '';
+                    frequencyGroup.style.display = '';
+                } else {
+                    billsPotGroup.style.display = 'none';
+                    payCycleGroup.style.display = 'none';
+                    frequencyGroup.style.display = 'none';
+                }
+            }
+            enableBillsPot.addEventListener('change', toggleBillsPotFields);
+            toggleBillsPotFields();
+        });
+        </script>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+            <a href="{{ url_for('configuration.config_overview') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %} 
