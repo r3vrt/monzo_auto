@@ -11,7 +11,7 @@ from monzo import MonzoAPIError, MonzoAuthenticationError, MonzoClient
 
 from app.services.database_service import db_service
 from app.services.account_utils import get_selected_account_ids
-from app.services.transaction_service import batch_fetch_transactions
+from app.services.transaction_utils import batch_fetch_transactions
 
 
 class MonzoService:

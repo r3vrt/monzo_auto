@@ -5,26 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 from app.services.account_utils import get_selected_account_ids
 from app.services.monzo_service import MonzoService
-
-def batch_fetch_transactions(account_id: str, since: str, before: str, batch_days: int = 10) -> List[dict]:
-    """Fetch transactions in batches to avoid API/network timeouts."""
-    all_txns = []
-    since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
-    before_dt = datetime.fromisoformat(before.replace("Z", "+00:00"))
-    current_start = since_dt
-    monzo_service = MonzoService()
-    while current_start < before_dt:
-        current_end = min(current_start + timedelta(days=batch_days), before_dt)
-        # Format as RFC3339 (no microseconds)
-        batch_since = current_start.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-        batch_before = current_end.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-        try:
-            txns = monzo_service.get_all_transactions(account_id, since=batch_since, before=batch_before)
-            all_txns.extend(txns)
-        except Exception:
-            pass
-        current_start = current_end
-    return all_txns
+from app.services.transaction_utils import batch_fetch_transactions
 
 def get_transactions_for_selected_accounts(
     since: str, before: str
