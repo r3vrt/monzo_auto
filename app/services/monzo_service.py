@@ -11,6 +11,7 @@ from monzo import MonzoAPIError, MonzoAuthenticationError, MonzoClient
 
 from app.services.database_service import db_service
 from app.services.account_utils import get_selected_account_ids
+from app.services.transaction_service import batch_fetch_transactions
 
 
 class MonzoService:
@@ -806,9 +807,18 @@ class MonzoService:
                 else:
                     cycle_start = today - datetime.timedelta(days=60)
                     cycle_end = today - datetime.timedelta(days=30)
-                since = cycle_start.isoformat() + "T00:00:00Z"
-                before = cycle_end.isoformat() + "T00:00:00Z"
-                txns = self.get_all_transactions(account_id, since=since, before=before)
+                # Ensure since and before are RFC3339 datetimes (no microseconds)
+                if isinstance(cycle_start, datetime.datetime):
+                    since_dt = cycle_start.replace(microsecond=0)
+                else:
+                    since_dt = datetime.datetime.combine(cycle_start, datetime.time.min)
+                if isinstance(cycle_end, datetime.datetime):
+                    before_dt = cycle_end.replace(microsecond=0)
+                else:
+                    before_dt = datetime.datetime.combine(cycle_end, datetime.time.min)
+                since = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                before = before_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                txns = batch_fetch_transactions(account_id, since, before, batch_days=10)
                 bills_pot_account_id = None
                 for txn in txns:
                     metadata = txn.get("metadata", {})
@@ -821,9 +831,7 @@ class MonzoService:
                 outgoings = 0.0
                 if bills_pot_account_id:
                     try:
-                        pot_txns = self.get_all_transactions(
-                            bills_pot_account_id, since=since, before=before
-                        )
+                        pot_txns = batch_fetch_transactions(bills_pot_account_id, since, before, batch_days=10)
                         for txn in pot_txns:
                             if txn.get("amount", 0) < 0:
                                 outgoings += abs(txn["amount"]) / 100.0

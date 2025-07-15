@@ -7,7 +7,9 @@ from flask import current_app
 from app.services.monzo_service import MonzoService, get_selected_account_ids
 from app.services.configuration_service import get_automation_config
 from app.services.metrics_service import metrics_service
+from app.services.transaction_service import batch_fetch_transactions
 import time
+from datetime import datetime
 
 
 def execute_autosorter() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]]:
@@ -290,13 +292,20 @@ def dry_run_autosorter(
             else:
                 cycle_start = today - timedelta(days=60)
                 cycle_end = today - timedelta(days=30)
-            since = cycle_start.isoformat() + "T00:00:00Z"
-            before = cycle_end.isoformat() + "T00:00:00Z"
-            current_app.logger.info(f"[Debug] About to call get_all_transactions for bills pot: account_id={account_id}, since={since}, before={before}")
-            txns = monzo_service.get_all_transactions(
-                account_id, since=since, before=before
-            )
-            current_app.logger.info(f"[Debug] get_all_transactions for bills pot returned {len(txns)} transactions")
+            # Ensure since and before are RFC3339 datetimes (no microseconds)
+            if isinstance(cycle_start, datetime):
+                since_dt = cycle_start.replace(microsecond=0)
+            else:
+                since_dt = datetime.combine(cycle_start, datetime.min.time())
+            if isinstance(cycle_end, datetime):
+                before_dt = cycle_end.replace(microsecond=0)
+            else:
+                before_dt = datetime.combine(cycle_end, datetime.min.time())
+            since = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            before = before_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills pot: account_id={account_id}, since={since}, before={before}")
+            txns = batch_fetch_transactions(account_id, since, before, batch_days=10)
+            current_app.logger.info(f"[Debug] batch_fetch_transactions for bills pot returned {len(txns)} transactions")
             bills_pot_account_id = None
             for txn in txns:
                 metadata = txn.get("metadata", {})
@@ -309,11 +318,9 @@ def dry_run_autosorter(
             outgoings = 0.0
             if bills_pot_account_id:
                 try:
-                    current_app.logger.info(f"[Debug] About to call get_all_transactions for bills_pot_account_id={bills_pot_account_id}, since={since}, before={before}")
-                    pot_txns = monzo_service.get_all_transactions(
-                        bills_pot_account_id, since=since, before=before
-                    )
-                    current_app.logger.info(f"[Debug] get_all_transactions for bills_pot_account_id returned {len(pot_txns)} transactions")
+                    current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills_pot_account_id={bills_pot_account_id}, since={since}, before={before}")
+                    pot_txns = batch_fetch_transactions(bills_pot_account_id, since, before, batch_days=10)
+                    current_app.logger.info(f"[Debug] batch_fetch_transactions for bills_pot_account_id returned {len(pot_txns)} transactions")
                     for txn in pot_txns:
                         if txn.get("amount", 0) < 0:
                             outgoings += abs(txn["amount"]) / 100.0
@@ -325,7 +332,7 @@ def dry_run_autosorter(
                                 "running_total": running_total
                             })
                 except Exception as e:
-                    current_app.logger.exception(f"[Debug] Exception in get_all_transactions for bills_pot_account_id: {e}")
+                    current_app.logger.exception(f"[Debug] Exception in batch_fetch_transactions for bills_pot_account_id: {e}")
                     for txn in txns:
                         if (
                             txn.get("pot_id") == bills_pot["id"]
