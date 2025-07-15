@@ -218,6 +218,8 @@ def dry_run_autosorter(
     else:
         simulated_balance = original_balance + 3200.0
     current_app.logger.info(f"[Debug] dry_run_autosorter calculated balances: original={original_balance}, simulated={simulated_balance}")
+    # The next block is bills pot calculation and allocations
+    # Add logging before and after each Monzo API/network call
     bills_topup = 0.0
     bills_calculation = None
     bills_transactions = []
@@ -290,9 +292,11 @@ def dry_run_autosorter(
                 cycle_end = today - timedelta(days=30)
             since = cycle_start.isoformat() + "T00:00:00Z"
             before = cycle_end.isoformat() + "T00:00:00Z"
+            current_app.logger.info(f"[Debug] About to call get_all_transactions for bills pot: account_id={account_id}, since={since}, before={before}")
             txns = monzo_service.get_all_transactions(
                 account_id, since=since, before=before
             )
+            current_app.logger.info(f"[Debug] get_all_transactions for bills pot returned {len(txns)} transactions")
             bills_pot_account_id = None
             for txn in txns:
                 metadata = txn.get("metadata", {})
@@ -305,9 +309,11 @@ def dry_run_autosorter(
             outgoings = 0.0
             if bills_pot_account_id:
                 try:
+                    current_app.logger.info(f"[Debug] About to call get_all_transactions for bills_pot_account_id={bills_pot_account_id}, since={since}, before={before}")
                     pot_txns = monzo_service.get_all_transactions(
                         bills_pot_account_id, since=since, before=before
                     )
+                    current_app.logger.info(f"[Debug] get_all_transactions for bills_pot_account_id returned {len(pot_txns)} transactions")
                     for txn in pot_txns:
                         if txn.get("amount", 0) < 0:
                             outgoings += abs(txn["amount"]) / 100.0
@@ -319,6 +325,7 @@ def dry_run_autosorter(
                                 "running_total": running_total
                             })
                 except Exception as e:
+                    current_app.logger.exception(f"[Debug] Exception in get_all_transactions for bills_pot_account_id: {e}")
                     for txn in txns:
                         if (
                             txn.get("pot_id") == bills_pot["id"]
@@ -333,6 +340,7 @@ def dry_run_autosorter(
                                 "running_total": running_total
                             })
             else:
+                current_app.logger.info(f"[Debug] No bills_pot_account_id, using txns for outgoings")
                 for txn in txns:
                     if (
                         txn.get("pot_id") == bills_pot["id"]
