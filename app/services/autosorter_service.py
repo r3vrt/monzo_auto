@@ -125,6 +125,7 @@ def dry_run_autosorter(
     Returns:
         Tuple of (success, context dict for template, result dict for history)
     """
+    current_app.logger.info("[Debug] Entered dry_run_autosorter")
     from datetime import date, timedelta
 
     monzo_service = MonzoService()
@@ -141,7 +142,9 @@ def dry_run_autosorter(
     pay_cycle = autosorter_config.get(
         "pay_cycle", {"payday": "15", "frequency": "monthly"}
     )
+    current_app.logger.info("[Debug] dry_run_autosorter loaded config")
     if not source_pot:
+        current_app.logger.warning("[Debug] Source pot not configured in dry_run_autosorter, returning early.")
         return (
             False,
             {
@@ -153,6 +156,7 @@ def dry_run_autosorter(
             None,
         )
     if allocation_strategy == "free_selection" and not destination_pots:
+        current_app.logger.warning("[Debug] No destination pots configured for free selection in dry_run_autosorter, returning early.")
         return (
             False,
             {
@@ -165,6 +169,7 @@ def dry_run_autosorter(
         )
     selected_accounts = get_selected_account_ids()
     if not selected_accounts:
+        current_app.logger.warning("[Debug] No selected account in dry_run_autosorter, returning early.")
         return (
             False,
             {
@@ -179,6 +184,7 @@ def dry_run_autosorter(
     pots = monzo_service.get_pots(account_id)
     active_pots = [pot for pot in pots if not pot.get("deleted", False)]
     pot_map = {pot["name"]: pot for pot in active_pots}
+    current_app.logger.info("[Debug] dry_run_autosorter built pot_map")
     # Override balances with simulated_pot_balances if provided
     def get_pot_balance(pot_name: str) -> float:
         if simulated_pot_balances and pot_name in simulated_pot_balances:
@@ -187,6 +193,7 @@ def dry_run_autosorter(
         return pot.get("balance", 0) / 100.0 if pot else 0.0
     src_pot = pot_map.get(source_pot)
     if not src_pot:
+        current_app.logger.warning(f"[Debug] Source pot '{source_pot}' not found in dry_run_autosorter, returning early.")
         return (
             False,
             {
@@ -210,6 +217,7 @@ def dry_run_autosorter(
         simulated_balance = simulated_pot_balances[source_pot]
     else:
         simulated_balance = original_balance + 3200.0
+    current_app.logger.info(f"[Debug] dry_run_autosorter calculated balances: original={original_balance}, simulated={simulated_balance}")
     bills_topup = 0.0
     bills_calculation = None
     bills_transactions = []
@@ -600,6 +608,8 @@ def dry_run_autosorter(
         message_parts.append(f"Source pot buffer: +£{buffer_info['amount']:.2f} ({buffer_info['reason']})")
     if savings_pot_name and remaining_balance > 0:
         message_parts.append(f"Savings pot '{savings_pot_name}': +£{remaining_balance:.2f}")
+    current_app.logger.info("[Debug] dry_run_autosorter finished allocations and calculations")
+    current_app.logger.info("[Debug] Returning from dry_run_autosorter")
     return (
         True,
         {

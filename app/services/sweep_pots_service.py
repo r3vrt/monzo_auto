@@ -180,10 +180,12 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
     Returns:
         Tuple of (success, context dict for template, result dict for history)
     """
+    current_app.logger.info("[Debug] Entered dry_run_sweep_pots")
     from app.services.monzo_service import get_selected_account_ids
     monzo_service = MonzoService()
     selected_ids = get_selected_account_ids()
     if not selected_ids:
+        current_app.logger.warning("[Debug] No accounts selected in dry_run_sweep_pots, returning early.")
         return (
             False,
             {
@@ -199,6 +201,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
     sweep_config = automation_config.get("sweep_pots", {})
     sweep_enabled = sweep_config.get("enabled", False)
     if not sweep_enabled:
+        current_app.logger.warning("[Debug] Sweep pots not enabled in config in dry_run_sweep_pots, returning early.")
         return (
             False,
             {
@@ -213,6 +216,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
     target_pot_name = sweep_config.get("target_pot_name", "")
     minimum_amount = sweep_config.get("minimum_amount", 0.0)
     if not source_pot_names or not target_pot_name:
+        current_app.logger.warning("[Debug] Source pots or target pot not configured in dry_run_sweep_pots, returning early.")
         return (
             False,
             {
@@ -225,6 +229,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
         )
     target_pot = monzo_service.get_pot_by_name(account_id, target_pot_name)
     if not target_pot:
+        current_app.logger.warning(f"[Debug] Target pot '{target_pot_name}' not found in dry_run_sweep_pots, returning early.")
         return (
             False,
             {
@@ -244,6 +249,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
             source_pot = monzo_service.get_pot_by_name(account_id, source_pot_name)
             if not source_pot:
                 failed_pots.append({"name": source_pot_name, "error": "Pot not found"})
+                current_app.logger.warning(f"[Debug] Source pot '{source_pot_name}' not found in dry_run_sweep_pots.")
                 continue
             if source_pot.get("deleted", False):
                 skipped_pots.append(
@@ -253,6 +259,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
                         "reason": "Pot is deleted",
                     }
                 )
+                current_app.logger.info(f"[Debug] Source pot '{source_pot_name}' is deleted in dry_run_sweep_pots.")
                 continue
             pot_balance_data = monzo_service.get_pot_balance(source_pot["id"])
             pot_balance = pot_balance_data.get("balance", 0) / 100.0
@@ -264,6 +271,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
                         "reason": f"Balance £{pot_balance:.2f} is below minimum £{minimum_amount:.2f}",
                     }
                 )
+                current_app.logger.info(f"[Debug] Source pot '{source_pot_name}' balance below minimum in dry_run_sweep_pots.")
                 continue
             swept_pots.append(
                 {
@@ -274,11 +282,14 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
                 }
             )
             total_swept += pot_balance
+            current_app.logger.info(f"[Debug] Would sweep £{pot_balance:.2f} from '{source_pot_name}' in dry_run_sweep_pots.")
         except Exception as e:
             failed_pots.append({"name": source_pot_name, "error": str(e)})
+            current_app.logger.exception(f"[Debug] Exception while processing '{source_pot_name}' in dry_run_sweep_pots.")
     target_balance_data = monzo_service.get_pot_balance(target_pot["id"])
     target_current_balance = target_balance_data.get("balance", 0) / 100.0
     target_new_balance = target_current_balance + total_swept
+    current_app.logger.info(f"[Debug] Finished processing all pots in dry_run_sweep_pots. Returning result.")
     result = {
         "status": "dry_run_success",
         "enabled": True,
@@ -295,6 +306,7 @@ def dry_run_sweep_pots() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
         },
         "minimum_amount": minimum_amount,
     }
+    current_app.logger.info("[Debug] Returning from dry_run_sweep_pots")
     # Create detailed message for display
     message_parts = [
         f"DRY RUN: Would sweep £{total_swept:.2f} from {len(swept_pots)} pots"
