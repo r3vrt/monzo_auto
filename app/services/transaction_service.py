@@ -6,23 +6,29 @@ from typing import Any, Dict, List, Tuple
 from app.services.account_utils import get_selected_account_ids
 from app.services.monzo_service import MonzoService
 
+def batch_fetch_transactions(account_id: str, since: str, before: str, batch_days: int = 10) -> List[dict]:
+    """Fetch transactions in batches to avoid API/network timeouts."""
+    all_txns = []
+    since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+    before_dt = datetime.fromisoformat(before.replace("Z", "+00:00"))
+    current_start = since_dt
+    monzo_service = MonzoService()
+    while current_start < before_dt:
+        current_end = min(current_start + timedelta(days=batch_days), before_dt)
+        batch_since = current_start.isoformat() + "Z"
+        batch_before = current_end.isoformat() + "Z"
+        try:
+            txns = monzo_service.get_all_transactions(account_id, since=batch_since, before=batch_before)
+            all_txns.extend(txns)
+        except Exception:
+            pass
+        current_start = current_end
+    return all_txns
 
 def get_transactions_for_selected_accounts(
     since: str, before: str
 ) -> Tuple[Dict[str, List[dict]], Dict[str, dict], List[str]]:
-    """Fetch and format transactions for all selected accounts within a date range.
-
-    Args:
-        since (str): ISO8601 string for the earliest transaction to fetch.
-        before (str): ISO8601 string for the latest transaction to fetch.
-    Returns:
-        Tuple containing:
-            - account_transactions: Dict[account_id, List[transaction dicts]]
-            - all_accounts: Dict[account_id, account dict]
-            - selected_ids: List[str]
-    Raises:
-        Exception: If authentication or fetching fails.
-    """
+    """Fetch and format transactions for all selected accounts within a date range, using batching for robustness."""
     monzo_service = MonzoService()
     # Test authentication
     test_accounts = monzo_service.get_accounts()
@@ -35,9 +41,7 @@ def get_transactions_for_selected_accounts(
     account_transactions = {}
     for account_id in selected_ids:
         try:
-            transactions = monzo_service.get_all_transactions(
-                account_id, since=since, before=before
-            )
+            transactions = batch_fetch_transactions(account_id, since, before, batch_days=10)
         except Exception:
             transactions = []
         # Get all pots for this account to create a mapping from pot_id to pot_name
@@ -46,21 +50,17 @@ def get_transactions_for_selected_accounts(
             pot_map = {pot.get("id"): pot.get("name", "Unknown Pot") for pot in pots if pot.get("id")}
         except Exception:
             pot_map = {}
-        
         for txn in transactions:
             # Check for pot_id in different possible locations
             pot_id = txn.get("pot_id")
-            
             # If no pot_id, check if description starts with 'pot_' (pot ID)
             if not pot_id and txn.get("description", "").startswith("pot_"):
                 pot_id = txn.get("description")
-            
             # Check metadata for pot information
             if not pot_id and txn.get("metadata"):
                 metadata = txn.get("metadata", {})
                 if isinstance(metadata, dict):
                     pot_id = metadata.get("pot_id") or metadata.get("pot")
-            
             if pot_id and pot_id in pot_map:
                 txn["pot_name"] = pot_map[pot_id]
                 txn["pot_id_short"] = None
@@ -70,7 +70,6 @@ def get_transactions_for_selected_accounts(
             else:
                 txn["pot_name"] = None
                 txn["pot_id_short"] = None
-            
             created = txn.get("created")
             if created:
                 try:
