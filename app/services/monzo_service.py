@@ -89,21 +89,25 @@ class MonzoService:
             self._save_tokens_to_db()
             return result
         except MonzoAuthenticationError as e:
+            current_app.logger.warning(f"MonzoAuthenticationError encountered: {e}. Attempting token refresh.")
             # Try to refresh the token
             try:
                 if self.client and self.client.refresh_token:
                     self.client.refresh_access_token()
+                    current_app.logger.info("Token refresh successful. Retrying API call.")
                     # Save refreshed tokens
                     self._save_tokens_to_db()
                     # Retry the original call with the new token
                     result = api_call(*args, **kwargs)
                     return result
                 else:
+                    current_app.logger.error("No refresh token available - manual reauthentication required.")
                     raise MonzoAuthenticationError(
                         "No refresh token available - manual reauthentication required"
                     )
 
             except Exception as refresh_error:
+                current_app.logger.error(f"Token refresh failed: {refresh_error}")
                 raise MonzoAuthenticationError(f"Token refresh failed: {refresh_error}")
 
     def get_authorization_url(self, state: Optional[str] = None) -> str:
