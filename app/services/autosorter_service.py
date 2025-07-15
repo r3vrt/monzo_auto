@@ -304,7 +304,7 @@ def dry_run_autosorter(
             since = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             before = before_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills pot: account_id={account_id}, since={since}, before={before}")
-            txns = batch_fetch_transactions(account_id, since, before, batch_days=10)
+            txns = batch_fetch_transactions(monzo_service, account_id, since, before, batch_days=10)
             current_app.logger.info(f"[Debug] batch_fetch_transactions for bills pot returned {len(txns)} transactions")
             bills_pot_account_id = None
             for txn in txns:
@@ -319,7 +319,7 @@ def dry_run_autosorter(
             if bills_pot_account_id:
                 try:
                     current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills_pot_account_id={bills_pot_account_id}, since={since}, before={before}")
-                    pot_txns = batch_fetch_transactions(bills_pot_account_id, since, before, batch_days=10)
+                    pot_txns = batch_fetch_transactions(monzo_service, bills_pot_account_id, since, before, batch_days=10)
                     current_app.logger.info(f"[Debug] batch_fetch_transactions for bills_pot_account_id returned {len(pot_txns)} transactions")
                     for txn in pot_txns:
                         if txn.get("amount", 0) < 0:

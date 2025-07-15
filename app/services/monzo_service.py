@@ -818,7 +818,7 @@ class MonzoService:
                     before_dt = datetime.datetime.combine(cycle_end, datetime.time.min)
                 since = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 before = before_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-                txns = batch_fetch_transactions(account_id, since, before, batch_days=10)
+                txns = batch_fetch_transactions(self, account_id, since, before, batch_days=10)
                 bills_pot_account_id = None
                 for txn in txns:
                     metadata = txn.get("metadata", {})
@@ -831,7 +831,7 @@ class MonzoService:
                 outgoings = 0.0
                 if bills_pot_account_id:
                     try:
-                        pot_txns = batch_fetch_transactions(bills_pot_account_id, since, before, batch_days=10)
+                        pot_txns = batch_fetch_transactions(self, bills_pot_account_id, since, before, batch_days=10)
                         for txn in pot_txns:
                             if txn.get("amount", 0) < 0:
                                 outgoings += abs(txn["amount"]) / 100.0

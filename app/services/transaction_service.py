@@ -23,7 +23,7 @@ def get_transactions_for_selected_accounts(
     account_transactions = {}
     for account_id in selected_ids:
         try:
-            transactions = batch_fetch_transactions(account_id, since, before, batch_days=10)
+            transactions = batch_fetch_transactions(monzo_service, account_id, since, before, batch_days=10)
         except Exception:
             transactions = []
         # Get all pots for this account to create a mapping from pot_id to pot_name
