@@ -15,8 +15,9 @@ def batch_fetch_transactions(account_id: str, since: str, before: str, batch_day
     monzo_service = MonzoService()
     while current_start < before_dt:
         current_end = min(current_start + timedelta(days=batch_days), before_dt)
-        batch_since = current_start.isoformat() + "Z"
-        batch_before = current_end.isoformat() + "Z"
+        # Format as RFC3339 (no microseconds)
+        batch_since = current_start.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        batch_before = current_end.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
         try:
             txns = monzo_service.get_all_transactions(account_id, since=batch_since, before=batch_before)
             all_txns.extend(txns)
