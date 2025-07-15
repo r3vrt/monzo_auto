@@ -122,10 +122,13 @@ def dry_run_autosorter_route():
 @bp.route("/combined/dry_run", methods=["GET", "POST"])
 def dry_run_combined_route():
     """Execute a dry run of both sweep pots and autosorter tasks in sequence without making actual transfers."""
+    current_app.logger.info("[Route] Entered /tasks/combined/dry_run route")
     success, context, result = dry_run_combined()
+    current_app.logger.info("[Route] dry_run_combined() returned. Preparing to render template.")
     # Pass detailed results for breakdown rendering
     sweep_results = result["sweep"] if result and "sweep" in result else None
     autosorter_results = result["autosorter"] if result and "autosorter" in result else None
+    current_app.logger.info("[Route] About to return response for /tasks/combined/dry_run")
     return render_template(
         "pages/tasks/execute.html",
         **context,
