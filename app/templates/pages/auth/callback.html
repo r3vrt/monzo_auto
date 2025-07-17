@@ -26,6 +26,11 @@
         <a href="/tasks/" class="btn">View Tasks</a>
         <a href="/monitoring/status" class="btn btn-secondary">System Status</a>
     </div>
+    {% if show_manual_sync %}
+    <form method="post" action="/auth/manual_sync">
+        <button type="submit" class="btn btn-primary">Sync Monzo Data Now</button>
+    </form>
+    {% endif %}
     {% endif %}
     
     {% if not success %}

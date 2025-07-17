@@ -94,6 +94,19 @@
         </div>
     </div>
 
+    {% if request.args.get('sync') == 'success' %}
+    <div class="alert alert-success">Monzo data sync completed successfully!</div>
+    {% endif %}
+    <form method="post" action="/auth/manual_sync" style="margin-bottom: 1em;">
+        <button type="submit" class="btn btn-primary">Sync Monzo Data Now</button>
+    </form>
+
+    {% if show_login_button %}
+    <div class="alert alert-warning" style="margin-bottom: 1em;">
+        You are not logged in. <a href="/auth/login" class="btn btn-primary">Log in to Monzo</a>
+    </div>
+    {% endif %}
+
     {% else %}
     <!-- Not authenticated -->
     <div class="header">
@@ -113,6 +126,7 @@
             <li>Authenticate with Monzo</li>
             <li>Start using the automation tasks</li>
         </ol>
+        <a href="/auth/login" class="btn btn-primary" style="margin-top: 1em;">Log in to Monzo</a>
     </div>
 
     {% endif %}

@@ -7,9 +7,68 @@ from flask import current_app
 from app.services.monzo_service import MonzoService, get_selected_account_ids
 from app.services.configuration_service import get_automation_config
 from app.services.metrics_service import metrics_service
-from app.services.transaction_service import batch_fetch_transactions
+from app.database import get_db_session, close_db_session, Transaction
 import time
 from datetime import datetime
+from app.services.transaction_utils import batch_fetch_transactions
+
+
+def update_transactions_for_selected_account():
+    """Fetch new transactions from Monzo API for the selected account and update the DB."""
+    selected_accounts = get_selected_account_ids()
+    if not selected_accounts:
+        return
+    account_id = selected_accounts[0]
+    session = get_db_session()
+    try:
+        monzo_service = MonzoService()
+        latest_txn = session.query(Transaction).filter_by(account_id=account_id).order_by(Transaction.created.desc()).first()
+        if latest_txn:
+            since = latest_txn.created.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            since = "2015-01-01T00:00:00Z"
+        before = datetime.utcnow().replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        txns = batch_fetch_transactions(monzo_service, account_id, since, before, batch_days=int(10))
+        for txn in txns:
+            try:
+                # Robust type conversion and error logging
+                txn_id = str(txn["id"])
+                txn_amount = int(txn.get("amount", 0)) if not isinstance(txn.get("amount", 0), int) else txn.get("amount", 0)
+                txn_currency = str(txn.get("currency")) if txn.get("currency") is not None else None
+                txn_description = str(txn.get("description")) if txn.get("description") is not None else None
+                txn_category = str(txn.get("category")) if txn.get("category") is not None else None
+                created = txn["created"]
+                if isinstance(created, str):
+                    created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                settled = txn.get("settled")
+                if settled:
+                    if isinstance(settled, str):
+                        settled = datetime.fromisoformat(settled.replace("Z", "+00:00"))
+                else:
+                    settled = None
+                txn_notes = str(txn.get("notes")) if txn.get("notes") is not None else None
+                txn_metadata = str(txn.get("metadata", {}))
+                txn_obj = Transaction(
+                    id=txn_id,
+                    account_id=account_id,
+                    amount=txn_amount,
+                    currency=txn_currency,
+                    description=txn_description,
+                    category=txn_category,
+                    created=created,
+                    settled=settled,
+                    notes=txn_notes,
+                    metadata_json=txn_metadata,
+                    last_sync=datetime.utcnow(),
+                )
+                session.merge(txn_obj)
+            except Exception as e:
+                current_app.logger.error(f"[Autosorter] Error inserting txn {txn.get('id')}: {e}\nFull txn: {txn}")
+        session.commit()
+    except Exception as e:
+        current_app.logger.error(f"[Autosorter] Error updating transactions: {e}")
+    finally:
+        close_db_session(session)
 
 
 def execute_autosorter() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]]:
@@ -18,6 +77,7 @@ def execute_autosorter() -> Tuple[bool, Dict[str, Any], Optional[Dict[str, Any]]
     Returns:
         Tuple of (success, context dict for template, result dict for history)
     """
+    update_transactions_for_selected_account()
     monzo_service = MonzoService()
     automation_config = get_automation_config()
     autosorter_config = automation_config.get("autosorter", {})
@@ -127,6 +187,7 @@ def dry_run_autosorter(
     Returns:
         Tuple of (success, context dict for template, result dict for history)
     """
+    update_transactions_for_selected_account()
     current_app.logger.info("[Debug] Entered dry_run_autosorter")
     from datetime import date, timedelta
 
@@ -292,86 +353,54 @@ def dry_run_autosorter(
             else:
                 cycle_start = today - timedelta(days=60)
                 cycle_end = today - timedelta(days=30)
-            # Ensure since and before are RFC3339 datetimes (no microseconds)
-            if isinstance(cycle_start, datetime):
-                since_dt = cycle_start.replace(microsecond=0)
-            else:
-                since_dt = datetime.combine(cycle_start, datetime.min.time())
-            if isinstance(cycle_end, datetime):
-                before_dt = cycle_end.replace(microsecond=0)
-            else:
-                before_dt = datetime.combine(cycle_end, datetime.min.time())
-            since = since_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            before = before_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-            current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills pot: account_id={account_id}, since={since}, before={before}")
-            txns = batch_fetch_transactions(monzo_service, account_id, since, before, batch_days=10)
-            current_app.logger.info(f"[Debug] batch_fetch_transactions for bills pot returned {len(txns)} transactions")
-            bills_pot_account_id = None
-            for txn in txns:
-                metadata = txn.get("metadata", {})
-                if (
-                    "pot_account_id" in metadata
-                    and metadata.get("pot_id") == bills_pot["id"]
-                ):
-                    bills_pot_account_id = metadata["pot_account_id"]
-                    break
-            outgoings = 0.0
-            if bills_pot_account_id:
-                try:
-                    current_app.logger.info(f"[Debug] About to call batch_fetch_transactions for bills_pot_account_id={bills_pot_account_id}, since={since}, before={before}")
-                    pot_txns = batch_fetch_transactions(monzo_service, bills_pot_account_id, since, before, batch_days=10)
-                    current_app.logger.info(f"[Debug] batch_fetch_transactions for bills_pot_account_id returned {len(pot_txns)} transactions")
-                    for txn in pot_txns:
-                        if txn.get("amount", 0) < 0:
-                            outgoings += abs(txn["amount"]) / 100.0
-                            running_total += abs(txn["amount"]) / 100.0
-                            bills_transactions.append({
-                                "date": txn.get("created"),
-                                "description": txn.get("description", txn.get("name", "")),
-                                "amount": txn.get("amount", 0) / 100.0,
-                                "running_total": running_total
-                            })
-                except Exception as e:
-                    current_app.logger.exception(f"[Debug] Exception in batch_fetch_transactions for bills_pot_account_id: {e}")
-                    for txn in txns:
-                        if (
-                            txn.get("pot_id") == bills_pot["id"]
-                            and txn.get("amount", 0) < 0
-                        ):
-                            outgoings += abs(txn["amount"]) / 100.0
-                            running_total += abs(txn["amount"]) / 100.0
-                            bills_transactions.append({
-                                "date": txn.get("created"),
-                                "description": txn.get("description", txn.get("name", "")),
-                                "amount": txn.get("amount", 0) / 100.0,
-                                "running_total": running_total
-                            })
-            else:
-                current_app.logger.info(f"[Debug] No bills_pot_account_id, using txns for outgoings")
+            # Use DB for bills pot outgoings
+            session = get_db_session()
+            try:
+                current_app.logger.info(f"[Debug] Bills pot window: cycle_start={cycle_start}, cycle_end={cycle_end}")
+                txns = (
+                    session.query(Transaction)
+                    .filter(
+                        Transaction.account_id == account_id,
+                        Transaction.created >= cycle_start,
+                        Transaction.created < cycle_end,
+                    )
+                    .order_by(Transaction.created.asc())
+                    .all()
+                )
+                current_app.logger.info(f"[Debug] Found {len(txns)} transactions in bills pot window for account {account_id}")
+                outgoings = 0.0
+                bills_transactions = []
+                running_total = 0.0
                 for txn in txns:
-                    if (
-                        txn.get("pot_id") == bills_pot["id"]
-                        and txn.get("amount", 0) < 0
-                    ):
-                        outgoings += abs(txn["amount"]) / 100.0
-                        running_total += abs(txn["amount"]) / 100.0
+                    # Outgoings: negative amounts, and pot_id matches bills pot
+                    meta = txn.metadata_json
+                    pot_id_match = False
+                    if meta and bills_pot["id"] in meta:
+                        pot_id_match = True
+                    # Try to match by description or category if needed
+                    if txn.amount < 0 and pot_id_match:
+                        amt = abs(txn.amount) / 100.0
+                        outgoings += amt
+                        running_total += amt
                         bills_transactions.append({
-                            "date": txn.get("created"),
-                            "description": txn.get("description", txn.get("name", "")),
-                            "amount": txn.get("amount", 0) / 100.0,
+                            "date": txn.created.isoformat(),
+                            "description": txn.description or "",
+                            "amount": amt,
                             "running_total": running_total
                         })
-            bills_topup = max(0, outgoings - bills_balance)
-            bills_calculation = {
-                "pot_name": bills_pot_name,
-                "current_balance": bills_balance,
-                "outgoings": outgoings,
-                "topup_needed": bills_topup,
-                "new_balance": bills_balance + bills_topup,
-                "cycle_start": cycle_start.isoformat(),
-                "cycle_end": cycle_end.isoformat(),
-                "bills_transactions": bills_transactions,
-            }
+                bills_topup = max(0, outgoings - bills_balance)
+                bills_calculation = {
+                    "pot_name": bills_pot_name,
+                    "current_balance": bills_balance,
+                    "outgoings": outgoings,
+                    "topup_needed": bills_topup,
+                    "new_balance": bills_balance + bills_topup,
+                    "cycle_start": cycle_start.isoformat(),
+                    "cycle_end": cycle_end.isoformat(),
+                    "bills_transactions": bills_transactions,
+                }
+            finally:
+                session.close()
             # Cap bills_topup at available simulated_balance
             if bills_topup > simulated_balance:
                 bills_topup = simulated_balance

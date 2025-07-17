@@ -161,6 +161,7 @@ def callback():
             success=True,
             user=user,
             home_url="/",
+            show_manual_sync=True,
         )
     except Exception as e:
         current_app.logger.exception("OAuth callback failed", extra={"route": "auth_callback"})
@@ -223,3 +224,11 @@ def logout():
     except Exception as e:
         current_app.logger.error(f"Logout failed: {e}")
         return redirect("/")
+
+
+@bp.route("/manual_sync", methods=["POST"])
+def manual_sync():
+    """Trigger a manual incremental sync after login."""
+    from app.__init__ import incremental_sync
+    incremental_sync()
+    return redirect(url_for("dashboard.overview", sync="success"))

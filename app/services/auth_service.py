@@ -5,7 +5,7 @@ import secrets
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from flask import current_app, session
+from flask import current_app, session, has_app_context
 
 from app.services.monzo_service import MonzoService
 from app.services.database_service import db_service
@@ -54,6 +54,42 @@ def get_user_info() -> Optional[Dict[str, Any]]:
 
 
 def clear_tokens() -> None:
-    """Clear stored authentication tokens using MonzoService."""
-    monzo_service = MonzoService()
-    monzo_service.clear_tokens()
+    """Clear stored authentication tokens using MonzoService, ensuring Flask app context. Also stop the incremental_sync scheduled job if running."""
+    from flask import current_app, has_app_context
+    try:
+        from app import scheduler
+    except ImportError:
+        scheduler = None
+    if not has_app_context():
+        from app import create_app
+        app = create_app()
+        with app.app_context():
+            monzo_service = MonzoService()
+            monzo_service.clear_tokens()
+            if scheduler:
+                jobs = scheduler.get_jobs()
+                current_app.logger.info(f"[logout] Jobs before removal: {[job.id for job in jobs]}")
+                for job in jobs:
+                    if 'sync' in job.id:
+                        try:
+                            scheduler.remove_job(job.id)
+                            current_app.logger.info(f"[logout] Removed job: {job.id}")
+                        except Exception as e:
+                            current_app.logger.info(f"[logout] Could not remove job {job.id}: {e}")
+                jobs_after = scheduler.get_jobs()
+                current_app.logger.info(f"[logout] Jobs after removal: {[job.id for job in jobs_after]}")
+    else:
+        monzo_service = MonzoService()
+        monzo_service.clear_tokens()
+        if scheduler:
+            jobs = scheduler.get_jobs()
+            current_app.logger.info(f"[logout] Jobs before removal: {[job.id for job in jobs]}")
+            for job in jobs:
+                if 'sync' in job.id:
+                    try:
+                        scheduler.remove_job(job.id)
+                        current_app.logger.info(f"[logout] Removed job: {job.id}")
+                    except Exception as e:
+                        current_app.logger.info(f"[logout] Could not remove job {job.id}: {e}")
+            jobs_after = scheduler.get_jobs()
+            current_app.logger.info(f"[logout] Jobs after removal: {[job.id for job in jobs_after]}")

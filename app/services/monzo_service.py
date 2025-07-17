@@ -174,16 +174,19 @@ class MonzoService:
         the OAuth configuration (client_id, client_secret, redirect_uri).
         """
         try:
+            current_app.logger.info("[clear_tokens] Attempting to clear access and refresh tokens in DB...")
             # Clear tokens from database
-            db_service.save_setting("auth.access_token", "", data_type="string")
-            db_service.save_setting("auth.refresh_token", "", data_type="string")
-            
+            result_access = db_service.save_setting("auth.access_token", "", data_type="string")
+            current_app.logger.info(f"[clear_tokens] save_setting access_token result: {result_access}")
+            result_refresh = db_service.save_setting("auth.refresh_token", "", data_type="string")
+            current_app.logger.info(f"[clear_tokens] save_setting refresh_token result: {result_refresh}")
             # Clear tokens from client if it exists
             if self.client:
                 self.client.access_token = None
                 self.client.refresh_token = None
+            current_app.logger.info("[clear_tokens] Token clearing complete.")
         except Exception as e:
-            current_app.logger.error(f"Failed to clear tokens: {e}")
+            current_app.logger.error(f"[clear_tokens] Failed to clear tokens: {e}")
 
     def ensure_recent_authentication(self) -> None:
         """Ensure recent authentication for full transaction access.

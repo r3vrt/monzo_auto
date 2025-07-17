@@ -29,6 +29,9 @@ def overview():
         }
         # Only include tasks with a real schedule
         task_summaries = {task: schedule_to_human(sched) for task, sched in schedules.items() if sched.get("type") != "none"}
+        # Determine if login button should be shown
+        access_token = db_service.get_setting("auth.access_token", "")
+        show_login_button = not access_token
         return render_template(
             "pages/dashboard/overview.html",
             authenticated=True,
@@ -38,6 +41,7 @@ def overview():
             account_count=account_count,
             home_url="/",
             task_summaries=task_summaries,
+            show_login_button=show_login_button,
         )
     except Exception as e:
         current_app.logger.exception("Failed to load overview", extra={"route": "dashboard_overview"})

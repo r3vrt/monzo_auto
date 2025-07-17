@@ -8,6 +8,10 @@ import logging
 from logging.handlers import RotatingFileHandler
 import json
 from datetime import datetime
+import threading
+from app.database import get_db_session, close_db_session, Account, Pot, Transaction
+from app.services.monzo_service import MonzoService
+from app.services.transaction_utils import batch_fetch_transactions
 
 # Import blueprints
 from app.auth import bp as auth_bp
@@ -103,6 +107,237 @@ def datetime_utc(ts):
         return str(ts)
 
 
+def startup_full_sync():
+    # Block sync if not authenticated
+    access_token = db_service.get_setting("auth.access_token", "")
+    refresh_token = db_service.get_setting("auth.refresh_token", "")
+    if not access_token or not refresh_token:
+        print("[Startup Sync] User not authenticated. Waiting for login before sync...")
+        return
+    session = get_db_session()
+    try:
+        # Check if this is the first run (no accounts in DB)
+        if session.query(Account).count() == 0:
+            print("[Startup Sync] No accounts found in DB. Performing full Monzo sync...")
+            monzo_service = MonzoService()
+            # 1. Sync accounts
+            accounts = monzo_service.get_accounts()
+            for acc in accounts:
+                account = Account(
+                    id=acc["id"],
+                    name=acc.get("name"),
+                    type=acc.get("type"),
+                    currency=acc.get("currency"),
+                    is_selected=True,  # or acc.get("is_selected", True)
+                    custom_name=acc.get("name"),
+                    last_sync=datetime.utcnow(),
+                )
+                session.merge(account)
+            session.commit()
+            # 2. Sync pots
+            for acc in accounts:
+                pots = monzo_service.get_pots(acc["id"])
+                for pot in pots:
+                    pot_obj = Pot(
+                        id=pot["id"],
+                        account_id=acc["id"],
+                        name=pot.get("name"),
+                        balance=pot.get("balance", 0),
+                        goal_amount=pot.get("goal_amount"),
+                        currency=pot.get("currency"),
+                        last_sync=datetime.utcnow(),
+                    )
+                    session.merge(pot_obj)
+            session.commit()
+            # 3. Sync transactions (batched)
+            for acc in accounts:
+                print(f"[Startup Sync] Syncing transactions for account {acc['id']}...")
+                txns = batch_fetch_transactions(monzo_service, acc["id"], "2015-01-01T00:00:00Z", datetime.utcnow().replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ"), batch_days=int(10))
+                for txn in txns:
+                    try:
+                        print(f"[SYNC DEBUG] Inserting txn {txn['id']} for account {acc['id']} (created={txn.get('created')})")
+                        # Handle created and settled fields as string or datetime
+                        created = txn["created"]
+                        if isinstance(created, str):
+                            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                        settled = txn.get("settled")
+                        if settled:
+                            if isinstance(settled, str):
+                                settled = datetime.fromisoformat(settled.replace("Z", "+00:00"))
+                            else:
+                                settled = None
+                        txn_obj = Transaction(
+                            id=txn["id"],
+                            account_id=acc["id"],
+                            amount=txn.get("amount", 0),
+                            currency=txn.get("currency"),
+                            description=txn.get("description"),
+                            category=txn.get("category"),
+                            created=created,
+                            settled=settled,
+                            notes=txn.get("notes"),
+                            metadata_json=str(txn.get("metadata", {})),
+                            last_sync=datetime.utcnow(),
+                        )
+                        session.merge(txn_obj)
+                        print(f"[SYNC DEBUG] Merged txn {txn['id']} successfully.")
+                    except Exception as e:
+                        import traceback
+                        print(f"[SYNC ERROR] Failed to insert txn {txn.get('id')}: {e}")
+                        traceback.print_exc()
+                try:
+                    session.commit()
+                    print(f"[SYNC DEBUG] Committed {len(txns)} transactions for account {acc['id']}.")
+                except Exception as e:
+                    import traceback
+                    print(f"[SYNC ERROR] Commit failed for account {acc['id']}: {e}")
+                    traceback.print_exc()
+            print("[Startup Sync] Full Monzo data sync complete.")
+        else:
+            print("[Startup Sync] Accounts found in DB. Skipping full sync.")
+    except Exception as e:
+        print(f"[Startup Sync] Error during sync: {e}")
+    finally:
+        close_db_session(session)
+
+
+def incremental_sync():
+    # Block sync if not authenticated
+    access_token = db_service.get_setting("auth.access_token", "")
+    refresh_token = db_service.get_setting("auth.refresh_token", "")
+    if not access_token or not refresh_token:
+        print("[Incremental Sync] User not authenticated. Waiting for login before sync...")
+        return
+    session = get_db_session()
+    try:
+        monzo_service = MonzoService()
+        print("[Incremental Sync] Starting incremental Monzo sync...")
+        # 1. Sync all accounts (batch if needed)
+        # Monzo API usually returns all accounts at once, but structure for batching
+        accounts = [acc for acc in monzo_service.get_accounts() if not acc.get('closed', False) and acc['id'] != 'acc_0000AvMJ5C8fnO1yI9tnPP']
+        for acc in accounts:
+            account = Account(
+                id=acc["id"],
+                name=acc.get("name"),
+                type=acc.get("type"),
+                currency=acc.get("currency"),
+                is_selected=True,
+                custom_name=acc.get("name"),
+                last_sync=datetime.utcnow(),
+            )
+            session.merge(account)
+        session.commit()
+        # 2. Sync all pots for each account (batch if needed)
+        for acc in accounts:
+            # If Monzo API supports pot pagination, implement here (currently, get_pots returns all)
+            pots = monzo_service.get_pots(acc["id"])
+            for pot in pots:
+                pot_obj = Pot(
+                    id=pot["id"],
+                    account_id=acc["id"],
+                    name=pot.get("name"),
+                    balance=pot.get("balance", 0),
+                    goal_amount=pot.get("goal_amount"),
+                    currency=pot.get("currency"),
+                    last_sync=datetime.utcnow(),
+                )
+                session.merge(pot_obj)
+        session.commit()
+        # 3. Sync new transactions for each account (batching)
+        for acc in accounts:
+            print(f"[DEBUG] Looking for latest transaction for account_id={acc['id']}")
+            count = session.query(Transaction).filter_by(account_id=acc["id"]).count()
+            print(f"[DEBUG] Found {count} transactions for account_id={acc['id']}")
+            latest_txn = session.query(Transaction).filter_by(account_id=acc["id"]).order_by(Transaction.created.desc()).first()
+            print(f"[DEBUG] Latest txn: {latest_txn}")
+            if latest_txn:
+                since = latest_txn.created.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+            else:
+                since = "2015-01-01T00:00:00Z"
+            before = datetime.utcnow().replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+            print(f"[DEBUG] Fetching transactions for account_id={acc['id']} from since={since} to before={before}")
+            print(f"[Incremental Sync] Syncing new transactions for account {acc['id']} since {since}...")
+            txns = batch_fetch_transactions(monzo_service, acc["id"], since, before, batch_days=int(10))
+            batch_size = 200
+            txn_count = 0
+            for txn in txns:
+                try:
+                    print(f"[SYNC DEBUG] Inserting txn {txn['id']} for account {acc['id']} (created={txn.get('created')})")
+                    # Handle created and settled fields as string or datetime
+                    created = txn["created"]
+                    if isinstance(created, str):
+                        created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    settled = txn.get("settled")
+                    if settled:
+                        if isinstance(settled, str):
+                            settled = datetime.fromisoformat(settled.replace("Z", "+00:00"))
+                        else:
+                            settled = None
+                    txn_obj = Transaction(
+                        id=txn["id"],
+                        account_id=acc["id"],
+                        amount=txn.get("amount", 0),
+                        currency=txn.get("currency"),
+                        description=txn.get("description"),
+                        category=txn.get("category"),
+                        created=created,
+                        settled=settled,
+                        notes=txn.get("notes"),
+                        metadata_json=str(txn.get("metadata", {})),
+                        last_sync=datetime.utcnow(),
+                    )
+                    session.merge(txn_obj)
+                    print(f"[SYNC DEBUG] Merged txn {txn['id']} successfully.")
+                    txn_count += 1
+                    if txn_count % batch_size == 0:
+                        try:
+                            session.commit()
+                            print(f"[SYNC DEBUG] Committed {batch_size} transactions for account {acc['id']} (batch commit).")
+                        except Exception as e:
+                            import traceback
+                            print(f"[SYNC ERROR] Commit failed for account {acc['id']} (batch): {e}")
+                            traceback.print_exc()
+                            try:
+                                session.rollback()
+                            except Exception as rb_e:
+                                print(f"[SYNC ERROR] Rollback failed after batch commit error: {rb_e}")
+                            if "database is locked" in str(e):
+                                import time
+                                time.sleep(0.2)
+                except Exception as e:
+                    import traceback
+                    print(f"[SYNC ERROR] Failed to insert txn {txn.get('id')}: {e}")
+                    traceback.print_exc()
+                    try:
+                        session.rollback()
+                    except Exception as rb_e:
+                        print(f"[SYNC ERROR] Rollback failed after insert error: {rb_e}")
+                    if "database is locked" in str(e):
+                        import time
+                        time.sleep(0.2)
+            # Commit any remaining transactions
+            if txn_count % batch_size != 0:
+                try:
+                    session.commit()
+                    print(f"[SYNC DEBUG] Committed remaining {txn_count % batch_size} transactions for account {acc['id']} (final commit).")
+                except Exception as e:
+                    import traceback
+                    print(f"[SYNC ERROR] Commit failed for account {acc['id']} (final): {e}")
+                    traceback.print_exc()
+                    try:
+                        session.rollback()
+                    except Exception as rb_e:
+                        print(f"[SYNC ERROR] Rollback failed after final commit error: {rb_e}")
+                    if "database is locked" in str(e):
+                        import time
+                        time.sleep(0.2)
+        print("[Incremental Sync] Incremental Monzo data sync complete.")
+    except Exception as e:
+        print(f"[Incremental Sync] Error during sync: {e}")
+    finally:
+        close_db_session(session)
+
+
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
@@ -163,6 +398,26 @@ def create_app():
             # Combined
             combined_config = automation_config.get("combined", {})
             register_job("combined_automation", scheduled_combined_automation, combined_config)
+            # Scheduled DB incremental sync every 6 hours
+            scheduler.add_job(
+                incremental_sync,
+                'interval',
+                id='scheduled_db_incremental_sync',
+                hours=6,
+                replace_existing=True
+            )
+
+    # Start the full sync in a background thread
+    def run_startup_full_sync():
+        with app.app_context():
+            startup_full_sync()
+    threading.Thread(target=run_startup_full_sync, daemon=True).start()
+
+    # Start incremental sync in a background thread
+    def run_incremental_sync():
+        with app.app_context():
+            incremental_sync()
+    threading.Thread(target=run_incremental_sync, daemon=True).start()
 
     app.config["flask_profiler"] = {
         "enabled": True,
