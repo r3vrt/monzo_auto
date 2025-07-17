@@ -45,3 +45,6 @@ debug_*.py
 test_*.py 
 .cursorrules
 migrate_to_database.py
+
+# Ignore backup directory for old project files
+backup/
