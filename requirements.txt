@@ -1,0 +1,14 @@
+Flask>=3.0.2
+SQLAlchemy>=2.0.41
+psycopg2-binary>=2.9.10
+git+https://github.com/r3vrt/monzo_apy.git
+black
+isort
+flake8
+mypy
+pytest
+responses
+APScheduler
+alembic
+python-dotenv
+requests

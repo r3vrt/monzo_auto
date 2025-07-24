@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Select Accounts - Monzo App{% endblock %}
+
+{% block page_title %}📥 Select Accounts{% endblock %}
+{% block page_subtitle %}Choose which Monzo accounts to import{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h5 class="alert-heading">ℹ️ Account Selection</h5>
+            <p class="mb-0">
+                Select the Monzo accounts you want to import and manage. 
+                Accounts that are already imported will be checked and disabled.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Available Accounts</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% for acc in accounts %}
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="account_id" value="{{ acc.id }}" 
+                               id="account_{{ acc.id }}" 
+                               {% if acc.is_active %}checked disabled{% endif %}>
+                        <label class="form-check-label" for="account_{{ acc.id }}">
+                            <strong>{{ acc.name }}</strong> 
+                            <span class="badge bg-secondary">{{ acc.type }}</span>
+                            {% if acc.closed %}<span class="badge bg-danger">Closed</span>{% endif %}
+                            {% if acc.is_active %}<span class="badge bg-success">Imported</span>{% endif %}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if accounts %}
+                    <button type="submit" class="btn btn-primary">Next: Name Accounts</button>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        No accounts found. Please make sure you're connected to Monzo.
+                    </div>
+                    <a href="{{ url_for('ui.auth_start') }}" class="btn btn-primary">Connect to Monzo</a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

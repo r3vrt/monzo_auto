@@ -1,0 +1,3220 @@
+{% extends "base.html" %}
+
+{% block title %}Automation Management - Monzo App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-number {
+        font-size: 2em;
+        font-weight: bold;
+        color: var(--primary-color);
+    }
+    
+    .stat-label {
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .rules-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .rule-card {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: box-shadow 0.2s;
+    }
+    
+    .rule-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    
+    .rule-content {
+        display: flex;
+        gap: 30px;
+    }
+    
+    .rule-left {
+        flex: 0 0 50%;
+    }
+    
+    .rule-right {
+        flex: 1;
+    }
+    
+    .rule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+    }
+    
+    .rule-main {
+        flex: 1;
+    }
+    
+    .rule-name {
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-bottom: 8px;
+        color: #333;
+    }
+    
+    .rule-type {
+        background: #f8f9fa;
+        color: #6c757d;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8em;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .rule-controls {
+        display: flex;
+        align-items: center;
+    }
+    
+    .rule-details {
+        margin-bottom: 15px;
+    }
+    
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .detail-item:last-child {
+        border-bottom: none;
+    }
+    
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+        font-size: 0.9em;
+    }
+    
+    .detail-value {
+        color: #333;
+        font-size: 0.9em;
+    }
+    
+    .rule-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding-top: 10px;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .execution-history {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 15px;
+    }
+    
+    .execution-history h4 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 1em;
+        font-weight: 600;
+    }
+    
+    .history-list {
+        /* Empty for now */
+    }
+    
+    .history-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        background: white;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        border-left: 3px solid #28a745;
+    }
+    
+    .history-item.empty {
+        border-left-color: #6c757d;
+    }
+    
+    .history-icon {
+        font-size: 1.2em;
+    }
+    
+    .history-details {
+        flex: 1;
+    }
+    
+    .history-time {
+        font-weight: 500;
+        color: #333;
+        font-size: 0.9em;
+        margin-bottom: 2px;
+    }
+    
+    .history-status {
+        color: #666;
+        font-size: 0.8em;
+        margin-bottom: 2px;
+    }
+    
+    .history-summary {
+        color: var(--primary-color);
+        font-size: 0.8em;
+        font-weight: 500;
+        line-height: 1.3;
+    }
+    
+    .status-toggle {
+        width: 50px;
+        height: 25px;
+        background: #ddd;
+        border-radius: 12px;
+        cursor: pointer;
+        position: relative;
+        transition: background 0.3s;
+    }
+    
+    .status-toggle.active {
+        background: #28a745;
+    }
+    
+    .status-toggle::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 21px;
+        height: 21px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.3s;
+    }
+    
+    .status-toggle.active::after {
+        transform: translateX(25px);
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .error {
+        color: #dc3545;
+        margin-top: 5px;
+    }
+    
+    .success {
+        color: #28a745;
+        margin-top: 5px;
+    }
+    
+    .config-display {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 0.8em;
+        font-family: 'Courier New', monospace;
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    
+    .rule-config h4 {
+        margin-bottom: 10px;
+        color: #495057;
+        font-size: 0.9em;
+        font-weight: 600;
+    }
+    
+    .btn {
+        padding: 6px 12px;
+        font-size: 0.8em;
+        margin-right: 5px;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+    
+    .btn:hover {
+        opacity: 0.8;
+    }
+    
+    .execution-results {
+        margin-top: 10px;
+    }
+    
+    .result-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .result-item.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .result-item.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .result-item.empty {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    
+    .result-icon {
+        font-size: 1.2em;
+        flex-shrink: 0;
+    }
+    
+    .result-details {
+        flex: 1;
+    }
+    
+    .result-time {
+        font-weight: 600;
+        font-size: 0.9em;
+        color: #495057;
+        margin-bottom: 4px;
+    }
+    
+    .result-status {
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+    
+    .result-summary {
+        font-size: 0.85em;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+    
+    .result-item.success .result-status {
+        color: #155724;
+    }
+    
+    .result-item.error .result-status {
+        color: #721c24;
+    }
+    
+    .result-item.empty .result-status {
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}🤖 Automation Management{% endblock %}
+{% block page_subtitle %}Create and manage automated money management rules{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number" id="total-rules">-</div>
+        <div class="stat-label">Total Rules</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="enabled-rules">-</div>
+        <div class="stat-label">Enabled Rules</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number" id="last-execution">-</div>
+        <div class="stat-label">Last Execution</div>
+    </div>
+</div>
+
+<div class="actions">
+    <button class="btn btn-primary" onclick="showCreateModal()">➕ Create New Rule</button>
+    <button class="btn btn-success" onclick="executeAutomation()">▶️ Execute Automation</button>
+    <button class="btn btn-warning" onclick="triggerAutomation()">⚡ Manual Trigger</button>
+    <button class="btn btn-info" onclick="getQueueStatus()">📊 Queue Status</button>
+    <button class="btn btn-info" onclick="getSweepExecutions()">🧹 Sweep Executions</button>
+    <button class="btn btn-danger" onclick="clearQueue()">🗑️ Clear Queue</button>
+    <button class="btn btn-secondary" onclick="refreshRules()">🔄 Refresh</button>
+</div>
+
+<div class="queue-status-section" style="display: none;">
+    <h3>Queue Status</h3>
+    <div id="queue-status" class="loading">Loading queue status...</div>
+</div>
+
+<div class="sweep-executions-section" style="display: none;">
+    <h3>Sweep Executions</h3>
+    <div id="sweep-executions" class="loading">Loading sweep executions...</div>
+</div>
+
+<div class="rules-section">
+    <h2>Automation Rules</h2>
+    <div id="rules-list" class="loading">Loading rules...</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadRules();
+    });
+    
+    function getExecutionSummary(rule) {
+        // Check if we have execution metadata from database
+        if (rule.execution_metadata && rule.execution_metadata.last_result) {
+            const lastResult = rule.execution_metadata.last_result;
+            
+            if (lastResult.success === false) {
+                return `Failed: ${lastResult.error || lastResult.reason || 'Unknown error'}`;
+            }
+            
+            // Use the reason from the execution result if available
+            if (lastResult.reason) {
+                return lastResult.reason;
+            }
+            
+            // Generate meaningful summary based on rule type and actual execution results
+            switch(rule.rule_type) {
+                case 'pot_sweep':
+                    if (lastResult.total_moved) {
+                        return `Moved £${(lastResult.total_moved / 100).toFixed(2)} from ${lastResult.sources_processed?.length || 0} sources`;
+                    } else {
+                        return 'Sweep executed but no money moved';
+                    }
+                    
+                case 'autosorter':
+                    if (lastResult.total_distributed) {
+                        const total = (lastResult.total_distributed / 100).toFixed(2);
+                        return `Distributed £${total} to pots`;
+                    } else {
+                        return 'Autosorter executed but no money distributed';
+                    }
+                    
+                case 'auto_topup':
+                    if (lastResult.amount) {
+                        return `Topped up £${(lastResult.amount / 100).toFixed(2)}`;
+                    } else {
+                        return 'Topup executed';
+                    }
+                    
+                case 'bills_pot_logic':
+                    return 'Analyzed bills spending and calculated shortfalls';
+                    
+                default:
+                    return 'Rule executed successfully';
+            }
+        }
+        
+        // Fallback to config-based summary if no execution history
+        const config = rule.config;
+        
+        switch(rule.rule_type) {
+            case 'pot_sweep':
+                if (config.trigger_type === 'payday_detection') {
+                    return `Moved money from multiple pots to ${config.target_pot_name || 'target pot'} on payday detection`;
+                } else if (config.amount) {
+                    return `Transferred £${(config.amount / 100).toFixed(2)} to target pot`;
+                } else {
+                    return 'Executed pot sweep operation';
+                }
+                
+            case 'autosorter':
+                if (config.trigger_type === 'time_of_day') {
+                    return `Distributed funds at ${config.time_of_day_trigger?.hour || 9}:${config.time_of_day_trigger?.minute || 0}0 on day ${config.time_of_day_trigger?.day_of_month || 25}`;
+                } else if (config.trigger_type === 'transaction_based') {
+                    return `Triggered by transaction matching "${config.transaction_trigger?.description_pattern || 'pattern'}"`;
+                } else if (config.trigger_type === 'date_range') {
+                    return `Executed between days ${config.date_range_trigger?.start_day || 25}-${config.date_range_trigger?.end_day || 27}`;
+                } else {
+                    return `Distributed funds to priority, goal, and investment pots`;
+                }
+                
+            case 'auto_topup':
+                return `Added £${(config.amount / 100).toFixed(2)} to target pot`;
+                
+            case 'bills_pot_logic':
+                return 'Analyzed bills spending and calculated shortfalls';
+                
+            default:
+                return 'Rule executed successfully';
+        }
+    }
+    
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/automation/status');
+            const data = await response.json();
+            
+            document.getElementById('total-rules').textContent = data.total_rules || 0;
+            document.getElementById('enabled-rules').textContent = data.enabled_rules || 0;
+            document.getElementById('last-execution').textContent = data.last_execution || 'Never';
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    async function triggerRule(ruleId, ruleName) {
+        if (!confirm(`Are you sure you want to manually trigger the rule "${ruleName}"?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/automation/rules/' + ruleId + '/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`Rule "${ruleName}" triggered successfully! Check the execution results below.`);
+                // Refresh the rules to show updated execution results
+                await loadRules();
+            } else {
+                alert(`Failed to trigger rule "${ruleName}": ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error triggering rule:', error);
+            alert(`Error triggering rule "${ruleName}": ${error.message}`);
+        }
+    }
+    
+    async function refreshRules() {
+        await loadRules();
+    }
+    
+    async function loadRules() {
+        try {
+            const response = await fetch('/api/automation/rules');
+            const data = await response.json();
+            
+            const rulesList = document.getElementById('rules-list');
+            if (data.rules && data.rules.length > 0) {
+                rulesList.innerHTML = data.rules.map(rule => `
+                    <div class="rule-card">
+                        <div class="rule-content">
+                            <div class="rule-left">
+                                <div class="rule-header">
+                                    <div class="rule-main">
+                                        <div class="rule-name">${rule.name}</div>
+                                        <span class="rule-type">${rule.rule_type}</span>
+                                    </div>
+                                    <div class="rule-controls">
+                                        <div class="status-toggle ${rule.enabled ? 'active' : ''}" onclick="toggleRule('${rule.id}')"></div>
+                                    </div>
+                                </div>
+                                <div class="rule-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Last Executed:</span>
+                                        <span class="detail-value">${rule.last_executed ? new Date(rule.last_executed).toLocaleString() : 'Never'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Created:</span>
+                                        <span class="detail-value">${new Date(rule.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Status:</span>
+                                        <span class="detail-value ${rule.enabled ? 'success' : 'error'}">${rule.enabled ? 'Enabled' : 'Disabled'}</span>
+                                    </div>
+                                </div>
+                                <div class="rule-actions">
+                                    <button class="btn btn-secondary" onclick="editRule('${rule.id}')">✏️ Edit</button>
+                                    <button class="btn btn-danger" onclick="deleteRule('${rule.id}', '${rule.name}')">🗑️ Delete</button>
+                                    <button class="btn btn-primary" onclick="triggerRule('${rule.id}', '${rule.name}')">⚡ Trigger</button>
+                                    <button class="btn btn-secondary" onclick="refreshRules()">🔄 Refresh</button>
+                                </div>
+                            </div>
+                            <div class="rule-right">
+                                <div class="rule-config">
+                                    <h4>Last Execution Results</h4>
+                                    <div class="execution-results">
+                                        ${rule.last_executed ? `
+                                            ${rule.execution_metadata && rule.execution_metadata.last_result ? `
+                                                ${(() => {
+                                                    const lastResult = rule.execution_metadata?.last_result;
+                                                    if (lastResult && lastResult.success === true) {
+                                                        return `
+                                                            <div class="result-item success">
+                                                                <div class="result-icon">✅</div>
+                                                                <div class="result-details">
+                                                                    <div class="result-time">${new Date(rule.last_executed).toLocaleString()}</div>
+                                                                    <div class="result-status">Successfully executed</div>
+                                                                    <div class="result-summary">
+                                                                        ${getExecutionSummary(rule)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        `;
+                                                    } else {
+                                                        return `
+                                                            <div class="result-item error">
+                                                                <div class="result-icon">❌</div>
+                                                                <div class="result-details">
+                                                                    <div class="result-time">${new Date(rule.last_executed).toLocaleString()}</div>
+                                                                    <div class="result-status">Execution failed</div>
+                                                                    <div class="result-summary">
+                                                                        ${getExecutionSummary(rule)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        `;
+                                                    }
+                                                })()}
+                                            ` : `
+                                                <div class="result-item success">
+                                                    <div class="result-icon">✅</div>
+                                                    <div class="result-details">
+                                                        <div class="result-time">${new Date(rule.last_executed).toLocaleString()}</div>
+                                                        <div class="result-status">Successfully executed</div>
+                                                        <div class="result-summary">
+                                                            ${getExecutionSummary(rule)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            `}
+                                        ` : `
+                                            <div class="result-item empty">
+                                                <div class="result-icon">⏳</div>
+                                                <div class="result-details">
+                                                    <div class="result-status">No executions yet</div>
+                                                    <div class="result-summary">Rule will execute when triggered</div>
+                                                </div>
+                                            </div>
+                                        `}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                rulesList.innerHTML = '<p>No automation rules found. Create your first rule!</p>';
+            }
+        } catch (error) {
+            console.error('Error loading rules:', error);
+            document.getElementById('rules-list').innerHTML = '<p class="error">Error loading rules</p>';
+        }
+    }
+    
+    function showCreateModal() {
+        // Create modal HTML
+        const modalHTML = `
+            <div id="createRuleModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>Create New Automation Rule</h2>
+                        <span onclick="closeCreateModal()" style="cursor: pointer; font-size: 24px;">&times;</span>
+                    </div>
+                    
+                    <form id="createRuleForm">
+                        <div style="margin-bottom: 20px;">
+                            <label for="ruleName" style="display: block; margin-bottom: 5px; font-weight: bold;">Rule Name:</label>
+                            <input type="text" id="ruleName" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="ruleType" style="display: block; margin-bottom: 5px; font-weight: bold;">Rule Type:</label>
+                            <select id="ruleType" onchange="updateConfigFields()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select a rule type...</option>
+                                <option value="pot_sweep">💰 Pot Sweep - Move money between pots</option>
+                                <option value="autosorter">📂 Autosorter - Intelligent money distribution</option>
+                                <option value="auto_topup">💳 Auto Topup - Add money to pots</option>
+                            </select>
+                        </div>
+                        
+                        <div id="configFields" style="margin-bottom: 20px;">
+                            <!-- Configuration fields will be populated based on rule type -->
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+                                <input type="checkbox" id="ruleEnabled" checked> Enable rule immediately
+                            </label>
+                        </div>
+                        
+                        <div style="text-align: right;">
+                            <button type="button" onclick="closeCreateModal()" style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer;">Cancel</button>
+                            <button type="submit" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Create Rule</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Load accounts and pots for configuration
+        loadAccountsAndPots();
+    }
+    
+    function closeCreateModal() {
+        const modal = document.getElementById('createRuleModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    async function loadAccountsAndPots() {
+        try {
+            // Load accounts
+            const accountsResponse = await fetch('/api/accounts');
+            const accountsData = await accountsResponse.json();
+            
+            // Load pots
+            const potsResponse = await fetch('/api/pots');
+            const potsData = await potsResponse.json();
+            
+            // Store for use in configuration
+            window.availableAccounts = accountsData.accounts || [];
+            window.availablePots = potsData.pots || [];
+            
+            console.log('Loaded accounts:', window.availableAccounts);
+            console.log('Loaded pots:', window.availablePots);
+            
+        } catch (error) {
+            console.error('Error loading accounts and pots:', error);
+        }
+    }
+    
+    function updateConfigFields() {
+        const ruleType = document.getElementById('ruleType').value;
+        const configFields = document.getElementById('configFields');
+        
+        if (!ruleType) {
+            configFields.innerHTML = '<p style="color: #666;">Select a rule type to configure...</p>';
+            return;
+        }
+        
+        switch(ruleType) {
+            case 'pot_sweep':
+                configFields.innerHTML = getPotSweepConfigHTML();
+                break;
+            case 'autosorter':
+                configFields.innerHTML = getAutosorterConfigHTML();
+                break;
+            case 'auto_topup':
+                configFields.innerHTML = getAutoTopupConfigHTML();
+                break;
+        }
+    }
+    
+    function getPotSweepConfigHTML() {
+        const accounts = window.availableAccounts || [];
+        const pots = window.availablePots || [];
+        
+        console.log('Building pot sweep config with pots:', pots);
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Pot Sweep Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="sweepTriggerType" onchange="updateSweepConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="manual">Manual (execute only when triggered)</option>
+                        <option value="monthly">Monthly (specific day of month)</option>
+                        <option value="weekly">Weekly (specific day of week)</option>
+                        <option value="payday_detection">Payday Detection (automatic)</option>
+                        <option value="balance_threshold">Balance Threshold</option>
+                    </select>
+                </div>
+                
+                <div id="sweepTriggerConfig">
+                    <!-- Trigger-specific configuration -->
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Pot:</label>
+                    <select id="targetPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select target pot...</option>
+                        ${pots.map(pot => `<option value="${pot.name}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Available pots: ${pots.length} (${pots.map(p => p.name).join(', ')})
+                    </div>
+                </div>
+                
+                                                    <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 10px; font-weight: bold;">
+                            <input type="checkbox" id="includeMainAccount" onchange="toggleMainAccountConfig()" style="margin-right: 8px;">
+                            💳 Include Main Account in Sweep
+                        </label>
+                    </div>
+                    
+                    <div id="mainAccountConfig" style="display: none; margin-left: 20px;">
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Main Account Strategy:</label>
+                            <select id="mainAccountStrategy" onchange="updateMainAccountAmountConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="fixed_amount">Fixed Amount</option>
+                                <option value="percentage">Percentage</option>
+                                <option value="remaining_balance">Remaining Balance</option>
+                                <option value="all_available">All Available</option>
+                            </select>
+                        </div>
+                        
+                        <div id="mainAccountAmountConfig" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Amount/Value:</label>
+                            <input type="number" step="0.01" id="mainAccountAmount" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div style="font-size: 0.8em; color: #666;">
+                            💡 <strong>Fixed Amount:</strong> Move exactly this amount<br>
+                            💡 <strong>Percentage:</strong> Move this % of main account balance<br>
+                            💡 <strong>Remaining Balance:</strong> Move everything except this minimum<br>
+                            💡 <strong>All Available:</strong> Move entire main account balance
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Source Pots:</label>
+                    <div id="sourcePots">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select class="sourcePot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select source pot...</option>
+                                ${pots.map(pot => `<option value="${pot.name}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                            </select>
+                            <select class="sourceStrategy" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="fixed_amount">Fixed Amount</option>
+                                <option value="percentage">Percentage</option>
+                                <option value="remaining_balance">Remaining Balance</option>
+                                <option value="all_available">All Available</option>
+                            </select>
+                            <input type="number" step="0.01" class="sourceAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <button type="button" onclick="removeSourcePot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addSourcePot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Source Pot</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    function getAutosorterConfigHTML() {
+        const pots = window.availablePots || [];
+        const goalKeywords = ['holiday', 'vacation', 'trip', 'goal', 'target', 'save', 'savings', 'fund', 'emergency', 'rainy day', 'christmas', 'birthday', 'wedding', 'house', 'car', 'renovation', 'debt', 'loan'];
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Intelligent Money Distribution Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="autosorterTriggerType" onchange="updateAutosorterConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="payday_date">Payday Date (legacy)</option>
+                        <option value="time_of_day">Time of Day</option>
+                        <option value="transaction_based">Transaction Based</option>
+                        <option value="date_range">Date Range</option>
+                        <option value="combined_conditions">Combined Conditions</option>
+                        <option value="automation_trigger">Automation Trigger</option>
+                        <option value="manual_only">Manual Only</option>
+                    </select>
+                </div>
+                
+                <div id="autosorterTriggerConfig">
+                    <!-- Trigger-specific configuration -->
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Holding Pot:</label>
+                    <select id="holdingPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select holding pot...</option>
+                        ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bills Pot:</label>
+                    <select id="billsPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select bills pot...</option>
+                        ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Priority Pots:</label>
+                    <div id="priorityPots">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select class="priorityPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select priority pot...</option>
+                                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                            </select>
+                            <select class="priorityType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="fixed_amount">Fixed Amount</option>
+                                <option value="percentage">Percentage</option>
+                            </select>
+                            <input type="number" step="0.01" class="priorityAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <button type="button" onclick="removePriorityPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addPriorityPot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Priority Pot</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Goal Pots:</label>
+                    <div style="background: #e9ecef; padding: 10px; border-radius: 4px; font-style: italic;">
+                        Goal pots are automatically selected from all pots with goals that aren't allocated in Priority or Investment sections. 
+                        No manual selection required.
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="includeGoalPots" checked style="width: 16px; height: 16px;">
+                            <span>Include goal pots in distribution</span>
+                        </label>
+                        <small style="color: #6c757d; display: block; margin-top: 5px;">
+                            When enabled, remaining funds will be distributed to pots with goals. When disabled, funds will skip goal pots and go directly to investment pots.
+                        </small>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Investment Pots:</label>
+                    <div id="investmentPots">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <select class="investmentPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">Select investment pot...</option>
+                                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                            </select>
+                            <select class="investmentType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="fixed_amount">Fixed Amount</option>
+                                <option value="percentage">Percentage</option>
+                                <option value="use_all_remaining">Use All Remaining</option>
+                            </select>
+                            <input type="number" step="0.01" class="investmentAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <button type="button" onclick="removeInvestmentPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addInvestmentPot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Investment Pot</button>
+                </div>
+                
+                                  <div style="margin-bottom: 15px;">
+                      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Holding Reserve (£):</label>
+                      <input type="number" step="0.01" id="holdingReserveAmount" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  </div>
+                
+                                  <div style="margin-bottom: 15px;">
+                      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minimum Holding Balance (£):</label>
+                      <input type="number" step="0.01" id="minHoldingBalance" value="100.00" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  </div>
+            </div>
+        `;
+    }
+    
+    function getAutoTopupConfigHTML() {
+        const accounts = window.availableAccounts || [];
+        const pots = window.availablePots || [];
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Auto Topup Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Source (Account/Pot):</label>
+                    <select id="sourceAccount" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select source...</option>
+                        <option value="main_account">💳 Main Account</option>
+                        ${accounts.map(acc => `<option value="${acc.id}">🏦 ${acc.name} (${acc.account_number})</option>`).join('')}
+                        ${pots.map(pot => `<option value="${pot.id}">💰 ${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target (Account/Pot):</label>
+                    <select id="targetPotTopup" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select target...</option>
+                        <option value="main_account">💳 Main Account</option>
+                        ${accounts.map(acc => `<option value="${acc.id}">🏦 ${acc.name} (${acc.account_number})</option>`).join('')}
+                        ${pots.map(pot => `<option value="${pot.id}">💰 ${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Amount (£):</label>
+                    <input type="number" step="0.01" id="topupAmount" placeholder="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Maximum amount to transfer (if using target balance, this is the cap)
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Balance (£):</label>
+                    <input type="number" step="0.01" id="topupTargetBalance" placeholder="50.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Optional: Top up to this balance (e.g., £50) instead of fixed amount
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="topupTriggerType" onchange="updateTopupTriggerConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="balance_threshold">Balance Threshold</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="daily">Daily</option>
+                        <option value="hourly">Hourly</option>
+                        <option value="minute">Every X Minutes</option>
+                    </select>
+                </div>
+                
+                <div id="topupTriggerConfig">
+                    <!-- Trigger-specific configuration will be populated here -->
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minimum Balance (£):</label>
+                    <input type="number" step="0.01" id="topupMinBalance" placeholder="30.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        For balance threshold: trigger when balance falls below this amount
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+
+    
+    function updateSweepConfig() {
+        const triggerType = document.getElementById('sweepTriggerType').value;
+        const configDiv = document.getElementById('sweepTriggerConfig');
+        
+        let configHTML = '';
+        
+        switch(triggerType) {
+            case 'monthly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month:</label>
+                        <input type="number" id="triggerDay" min="1" max="31" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'weekly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Week (1=Monday, 7=Sunday):</label>
+                        <input type="number" id="triggerDay" min="1" max="7" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'payday_detection':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Payday Threshold (£):</label>
+                        <input type="number" step="0.01" id="paydayThreshold" placeholder="500.00" value="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Minimum amount to consider as payday (default: £500)
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Description Pattern (optional):</label>
+                        <input type="text" id="paydayDescriptionPattern" placeholder="e.g., SALARY, PAYMENT, EMPLOYER" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Only trigger on transactions containing this text (case-insensitive, leave empty to match any large transaction)
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'balance_threshold':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Threshold Amount (£):</label>
+                        <input type="number" step="0.01" id="triggerThreshold" placeholder="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+        }
+        
+        configDiv.innerHTML = configHTML;
+    }
+    
+    function updateEditAutosorterConfig() {
+        const triggerType = document.getElementById('editAutosorterTriggerType').value;
+        const configDiv = document.getElementById('editAutosorterTriggerConfig');
+        
+        // Get current config from the form
+        const currentConfig = buildEditAutosorterConfig();
+        
+        // Update the trigger config section
+        configDiv.innerHTML = getEditAutosorterTriggerConfigHTML(triggerType, currentConfig);
+    }
+    
+    function updateAutosorterConfig() {
+        const triggerType = document.getElementById('autosorterTriggerType').value;
+        const configDiv = document.getElementById('autosorterTriggerConfig');
+        
+        let configHTML = '';
+        
+        switch(triggerType) {
+            case 'payday_date':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Payday Date:</label>
+                        <input type="number" id="paydayDate" min="1" max="31" value="25" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'time_of_day':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month:</label>
+                        <input type="number" id="timeDay" min="1" max="31" value="25" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Hour (24-hour):</label>
+                        <input type="number" id="timeHour" min="0" max="23" value="9" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minute:</label>
+                        <input type="number" id="timeMinute" min="0" max="59" value="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'transaction_based':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Transaction Amount Threshold (pence):</label>
+                        <input type="number" id="transactionThreshold" placeholder="50000 for £500" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Description Pattern (optional):</label>
+                        <input type="text" id="descriptionPattern" placeholder="e.g., SALARY, PAYMENT" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'date_range':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Start Date:</label>
+                        <input type="date" id="startDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">End Date:</label>
+                        <input type="date" id="endDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'combined_conditions':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Combination Logic:</label>
+                        <select id="combinationLogic" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="AND">ALL conditions must be met (AND)</option>
+                            <option value="OR">ANY condition can trigger (OR)</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Conditions:</label>
+                        <div id="combinedConditions">
+                            <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                                <div style="margin-bottom: 10px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Condition Type:</label>
+                                    <select class="conditionType" onchange="updateConditionFields(this)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                        <option value="">Select condition type...</option>
+                                        <option value="day_of_month">Day of Month</option>
+                                        <option value="time_of_day">Time of Day</option>
+                                        <option value="transaction_amount">Transaction Amount</option>
+                                        <option value="transaction_description">Transaction Description</option>
+                                        <option value="balance_threshold">Account Balance</option>
+                                        <option value="day_of_week">Day of Week</option>
+                                    </select>
+                                </div>
+                                <div class="conditionFields">
+                                    <!-- Dynamic fields will be inserted here -->
+                                </div>
+                                <button type="button" onclick="removeCondition(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove Condition</button>
+                            </div>
+                        </div>
+                        <button type="button" onclick="addCondition()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Condition</button>
+                    </div>
+                `;
+                break;
+                         case 'automation_trigger':
+                 configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Conditions:</label>
+                        <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" id="triggerOnSweep" checked> Trigger when pot sweeps move money
+                            </label>
+                            <div id="sweepThresholdField" style="margin-top: 10px;">
+                                <label style="display: block; margin-bottom: 5px;">Minimum sweep amount to trigger (£):</label>
+                                <input type="number" id="minSweepAmount" value="1000.00" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" id="triggerOnTopup" checked> Trigger when auto topups are successful
+                            </label>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" id="triggerOnAutosorter"> Trigger when other autosorter rules run
+                            </label>
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'manual_only':
+                configHTML = `
+                    <div style="background: #e9ecef; padding: 15px; border-radius: 4px; text-align: center;">
+                        <p style="margin: 0; font-style: italic;">This autosorter will only run when manually triggered via the API or dashboard.</p>
+                    </div>
+                `;
+                break;
+        }
+        
+        configDiv.innerHTML = configHTML;
+        
+        // Add event listeners for dynamic fields
+        if (triggerType === 'automation_trigger') {
+            document.getElementById('requireMinimumBalance')?.addEventListener('change', function() {
+                const minBalanceField = document.getElementById('minBalanceField');
+                if (minBalanceField) {
+                    minBalanceField.style.display = this.checked ? 'block' : 'none';
+                }
+            });
+        }
+    }
+    
+    function toggleMainAccountConfig() {
+        const includeMainAccount = document.getElementById('includeMainAccount');
+        const mainAccountConfig = document.getElementById('mainAccountConfig');
+        const mainAccountStrategy = document.getElementById('mainAccountStrategy');
+        
+        if (includeMainAccount.checked) {
+            mainAccountConfig.style.display = 'block';
+            updateMainAccountAmountConfig();
+        } else {
+            mainAccountConfig.style.display = 'none';
+        }
+    }
+    
+    function updateMainAccountAmountConfig() {
+        const strategy = document.getElementById('mainAccountStrategy').value;
+        const amountConfig = document.getElementById('mainAccountAmountConfig');
+        const amountInput = document.getElementById('mainAccountAmount');
+        
+        switch(strategy) {
+            case 'fixed_amount':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Amount (£)';
+                break;
+            case 'percentage':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Percentage (0-100)';
+                break;
+            case 'remaining_balance':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Minimum to keep (£)';
+                break;
+            case 'all_available':
+                amountConfig.style.display = 'none';
+                break;
+        }
+    }
+    
+    function toggleEditMainAccountConfig() {
+        const includeMainAccount = document.getElementById('editIncludeMainAccount');
+        const mainAccountConfig = document.getElementById('editMainAccountConfig');
+        
+        if (includeMainAccount.checked) {
+            mainAccountConfig.style.display = 'block';
+            updateEditMainAccountAmountConfig();
+        } else {
+            mainAccountConfig.style.display = 'none';
+        }
+    }
+    
+    function updateEditMainAccountAmountConfig() {
+        const strategy = document.getElementById('editMainAccountStrategy').value;
+        const amountConfig = document.getElementById('editMainAccountAmountConfig');
+        const amountInput = document.getElementById('editMainAccountAmount');
+        
+        switch(strategy) {
+            case 'fixed_amount':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Amount (£)';
+                break;
+            case 'percentage':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Percentage (0-100)';
+                break;
+            case 'remaining_balance':
+                amountConfig.style.display = 'block';
+                amountInput.placeholder = 'Minimum to keep (£)';
+                break;
+            case 'all_available':
+                amountConfig.style.display = 'none';
+                break;
+        }
+    }
+    
+    function addSourcePot() {
+        const sourcePotsDiv = document.getElementById('sourcePots');
+        const pots = window.availablePots || [];
+        
+        const newSource = document.createElement('div');
+        newSource.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+        newSource.innerHTML = `
+            <select class="sourcePot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select source pot...</option>
+                ${pots.map(pot => `<option value="${pot.name}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+            </select>
+            <select class="sourceStrategy" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+                <option value="remaining_balance">Remaining Balance</option>
+                <option value="all_available">All Available</option>
+            </select>
+            <input type="number" class="sourceAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removeSourcePot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        
+        sourcePotsDiv.appendChild(newSource);
+    }
+    
+    function removeSourcePot(button) {
+        button.parentElement.remove();
+    }
+    
+    function addPriorityPot() {
+        const priorityPotsDiv = document.getElementById('priorityPots');
+        const pots = window.availablePots || [];
+        
+        const newPriority = document.createElement('div');
+        newPriority.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+        newPriority.innerHTML = `
+            <select class="priorityPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select priority pot...</option>
+                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+            </select>
+            <select class="priorityType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+            </select>
+            <input type="number" class="priorityAmount" placeholder="Amount" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removePriorityPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        
+        priorityPotsDiv.appendChild(newPriority);
+    }
+    
+    function removePriorityPot(button) {
+        button.parentElement.remove();
+    }
+    
+
+    
+    function addInvestmentPot() {
+        const investmentPotsDiv = document.getElementById('investmentPots');
+        const pots = window.availablePots || [];
+        
+        const newInvestment = document.createElement('div');
+        newInvestment.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+        newInvestment.innerHTML = `
+            <select class="investmentPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select investment pot...</option>
+                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+            </select>
+            <select class="investmentType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+                <option value="use_all_remaining">Use All Remaining</option>
+            </select>
+            <input type="number" class="investmentAmount" placeholder="Amount" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removeInvestmentPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        
+        investmentPotsDiv.appendChild(newInvestment);
+    }
+    
+    function addEditPriorityPot() {
+        const container = document.getElementById('editPriorityPots');
+        const pots = window.availablePots || [];
+        
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+        div.innerHTML = `
+            <select class="editPriorityPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select priority pot...</option>
+                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+            </select>
+            <select class="editPriorityType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+            </select>
+                            <input type="number" step="0.01" class="editPriorityAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removeEditPriorityPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        container.appendChild(div);
+    }
+    
+    function removeEditPriorityPot(button) {
+        button.parentElement.remove();
+    }
+    
+    function addEditInvestmentPot() {
+        const container = document.getElementById('editInvestmentPots');
+        const pots = window.availablePots || [];
+        
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+        div.innerHTML = `
+            <select class="editInvestmentPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select investment pot...</option>
+                ${pots.map(pot => `<option value="${pot.id}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+            </select>
+            <select class="editInvestmentType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+                <option value="use_all_remaining">Use All Remaining</option>
+            </select>
+                            <input type="number" step="0.01" class="editInvestmentAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removeEditInvestmentPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        container.appendChild(div);
+    }
+    
+    function removeEditInvestmentPot(button) {
+        button.parentElement.remove();
+    }
+    
+    function removeInvestmentPot(button) {
+        button.parentElement.remove();
+    }
+    
+    function addCondition() {
+        const container = document.getElementById('combinedConditions');
+        const div = document.createElement('div');
+        div.style.cssText = 'border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;';
+        div.innerHTML = `
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Condition Type:</label>
+                <select class="conditionType" onchange="updateConditionFields(this)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">Select condition type...</option>
+                    <option value="day_of_month">Day of Month</option>
+                    <option value="time_of_day">Time of Day</option>
+                    <option value="transaction_amount">Transaction Amount</option>
+                    <option value="transaction_description">Transaction Description</option>
+                    <option value="balance_threshold">Account Balance</option>
+                    <option value="day_of_week">Day of Week</option>
+                </select>
+            </div>
+            <div class="conditionFields">
+                <!-- Dynamic fields will be inserted here -->
+            </div>
+            <button type="button" onclick="removeCondition(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove Condition</button>
+        `;
+        container.appendChild(div);
+    }
+    
+    function removeCondition(button) {
+        button.parentElement.remove();
+    }
+    
+    function updateConditionFields(select) {
+        const conditionDiv = select.closest('div');
+        const fieldsDiv = conditionDiv.querySelector('.conditionFields');
+        const conditionType = select.value;
+        
+        let fieldsHTML = '';
+        
+        switch(conditionType) {
+            case 'day_of_month':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month (1-31):</label>
+                        <input type="number" class="conditionValue" min="1" max="31" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'time_of_day':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Time (HH:MM):</label>
+                        <input type="time" class="conditionValue" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'transaction_amount':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Amount Threshold (pence):</label>
+                        <input type="number" class="conditionValue" placeholder="50000 for £500" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'transaction_description':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Description Pattern:</label>
+                        <input type="text" class="conditionValue" placeholder="e.g., SALARY, PAYMENT" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'balance_threshold':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Balance Threshold (pence):</label>
+                        <input type="number" class="conditionValue" placeholder="100000 for £1000" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'day_of_week':
+                fieldsHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Week:</label>
+                        <select class="conditionValue" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3">Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="7">Sunday</option>
+                        </select>
+                    </div>
+                `;
+                break;
+        }
+        
+                fieldsDiv.innerHTML = fieldsHTML;
+    }
+    
+    // Helper functions for pounds/pence conversion
+    function poundsToPence(pounds) {
+        if (!pounds || pounds === '') return null;
+        const parsed = parseFloat(pounds);
+        if (isNaN(parsed)) return null;
+        return Math.round(parsed * 100);
+    }
+    
+    function penceToPounds(pence) {
+        if (!pence || pence === '') return '';
+        return (parseInt(pence) / 100).toFixed(2);
+    }
+    
+    // Handle form submission
+    document.addEventListener('submit', function(e) {
+        if (e.target.id === 'createRuleForm') {
+            e.preventDefault();
+            createRule();
+        }
+    });
+    
+    async function createRule() {
+        try {
+            const ruleName = document.getElementById('ruleName').value.trim();
+            const ruleType = document.getElementById('ruleType').value;
+            const enabled = document.getElementById('ruleEnabled').checked;
+            
+            if (!ruleName || !ruleType) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            let config = {};
+            
+            switch(ruleType) {
+                case 'pot_sweep':
+                    config = buildPotSweepConfig();
+                    break;
+                case 'autosorter':
+                    config = buildAutosorterConfig();
+                    break;
+                case 'auto_topup':
+                    config = buildAutoTopupConfig();
+                    break;
+            }
+            
+            if (!config) {
+                alert('Please complete the configuration');
+                return;
+            }
+            
+            const ruleData = {
+                name: ruleName,
+                rule_type: ruleType,
+                config: config,
+                enabled: enabled
+            };
+            
+            const response = await fetch('/api/automation/rules', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ruleData)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert(`Rule created successfully! Rule ID: ${result.rule_id}`);
+                closeCreateModal();
+                loadRules();
+                loadStats();
+            } else {
+                const errorData = await response.json();
+                alert(`Error creating rule: ${errorData.error || 'Unknown error'}`);
+            }
+            
+        } catch (error) {
+            console.error('Error creating rule:', error);
+            alert(`Error creating rule: ${error.message}`);
+        }
+    }
+    
+    function buildPotSweepConfig() {
+        const triggerType = document.getElementById('sweepTriggerType').value;
+        const targetPot = document.getElementById('targetPot').value;
+        
+        if (!targetPot) {
+            alert('Please select a target pot');
+            return null;
+        }
+        
+        const config = {
+            trigger_type: triggerType,
+            target_pot_name: targetPot
+        };
+        
+        // Add trigger-specific configuration
+        switch(triggerType) {
+            case 'monthly':
+            case 'weekly':
+                const triggerDay = document.getElementById('triggerDay')?.value;
+                if (triggerDay) config.trigger_day = parseInt(triggerDay);
+                break;
+            case 'payday_detection':
+                const paydayThreshold = document.getElementById('paydayThreshold')?.value;
+                if (paydayThreshold) config.payday_threshold = poundsToPence(paydayThreshold);
+                const paydayDescriptionPattern = document.getElementById('paydayDescriptionPattern')?.value;
+                if (paydayDescriptionPattern && paydayDescriptionPattern.trim()) {
+                    config.payday_description_pattern = paydayDescriptionPattern.trim();
+                }
+                break;
+            case 'balance_threshold':
+                const threshold = document.getElementById('triggerThreshold')?.value;
+                if (threshold) config.trigger_threshold = poundsToPence(threshold);
+                break;
+        }
+        
+        // Add sources
+        const sources = [];
+        
+        // Add main account source if enabled
+        const includeMainAccount = document.getElementById('includeMainAccount');
+        if (includeMainAccount && includeMainAccount.checked) {
+            const mainAccountStrategy = document.getElementById('mainAccountStrategy').value;
+            const mainAccountAmount = document.getElementById('mainAccountAmount').value;
+            
+            const mainAccountSource = {
+                pot_name: 'main_account',
+                strategy: mainAccountStrategy,
+                priority: 0
+            };
+            
+            // Add amount based on strategy
+            if (mainAccountStrategy === 'fixed_amount') {
+                mainAccountSource.amount = mainAccountAmount ? poundsToPence(mainAccountAmount) : null;
+            } else if (mainAccountStrategy === 'remaining_balance') {
+                mainAccountSource.min_balance = mainAccountAmount ? poundsToPence(mainAccountAmount) : null;
+            } else if (mainAccountStrategy === 'percentage') {
+                const percentage = mainAccountAmount ? parseFloat(mainAccountAmount) : null;
+                mainAccountSource.percentage = (percentage && !isNaN(percentage)) ? percentage / 100 : null;
+            }
+            
+            sources.push(mainAccountSource);
+        }
+        
+        // Add pot sources
+        const sourceElements = document.querySelectorAll('.sourcePot');
+        sourceElements.forEach((element, index) => {
+            const potName = element.value;
+            const strategy = element.parentElement.querySelector('.sourceStrategy').value;
+            const amount = element.parentElement.querySelector('.sourceAmount').value;
+            
+            if (potName) {
+                const source = {
+                    pot_name: potName,
+                    strategy: strategy,
+                    priority: sources.length + index
+                };
+                
+                // Add amount based on strategy
+                if (strategy === 'fixed_amount') {
+                    source.amount = amount ? poundsToPence(amount) : null;
+                } else if (strategy === 'remaining_balance') {
+                    source.min_balance = amount ? poundsToPence(amount) : null;
+                } else if (strategy === 'percentage') {
+                    const percentage = amount ? parseFloat(amount) : null;
+                    source.percentage = (percentage && !isNaN(percentage)) ? percentage / 100 : null;
+                }
+                
+                sources.push(source);
+            }
+        });
+        
+        if (sources.length === 0) {
+            alert('Please add at least one source (main account or pot)');
+            return null;
+        }
+        
+        config.sources = sources;
+        return config;
+    }
+    
+    function buildEditAutosorterConfig() {
+        const triggerType = document.getElementById('editAutosorterTriggerType').value;
+        const holdingPot = document.getElementById('editHoldingPot').value;
+        const billsPot = document.getElementById('editBillsPot').value;
+        const holdingReserveAmount = document.getElementById('editHoldingReserveAmount').value;
+        const minHoldingBalance = document.getElementById('editMinHoldingBalance').value;
+        
+        // Build trigger config based on type
+        let triggerConfig = {};
+        switch(triggerType) {
+            case 'payday_date':
+                triggerConfig.payday_date = parseInt(document.getElementById('editPaydayDate')?.value) || null;
+                break;
+            case 'time_of_day':
+                triggerConfig.trigger_time = document.getElementById('editTriggerTime')?.value || null;
+                break;
+            case 'transaction_based':
+                triggerConfig.transaction_threshold = parseInt(document.getElementById('editTransactionThreshold')?.value) || null;
+                break;
+            case 'date_range':
+                triggerConfig.start_date = document.getElementById('editStartDate')?.value || null;
+                triggerConfig.end_date = document.getElementById('editEndDate')?.value || null;
+                break;
+        }
+        
+        // Build priority pots
+        const priorityPots = [];
+        document.querySelectorAll('#editPriorityPots > div').forEach(div => {
+            const potSelect = div.querySelector('.editPriorityPot');
+            const typeSelect = div.querySelector('.editPriorityType');
+            const amountInput = div.querySelector('.editPriorityAmount');
+            
+            if (potSelect.value) {
+                const potConfig = {
+                    pot_id: potSelect.value,
+                    allocation_type: typeSelect.value
+                };
+                
+                // Handle different allocation types
+                if (typeSelect.value === 'percentage' && amountInput.value) {
+                    potConfig.percentage = parseFloat(amountInput.value);
+                } else if (typeSelect.value === 'fixed_amount' && amountInput.value) {
+                    potConfig.amount = poundsToPence(amountInput.value);
+                } else if (amountInput.value) {
+                    // Fallback: use amount for other types
+                    potConfig.amount = poundsToPence(amountInput.value);
+                }
+                
+                priorityPots.push(potConfig);
+            }
+        });
+        
+        // Build investment pots
+        const investmentPots = [];
+        document.querySelectorAll('#editInvestmentPots > div').forEach(div => {
+            const potSelect = div.querySelector('.editInvestmentPot');
+            const typeSelect = div.querySelector('.editInvestmentType');
+            const amountInput = div.querySelector('.editInvestmentAmount');
+            
+            if (potSelect.value) {
+                const potConfig = {
+                    pot_id: potSelect.value,
+                    allocation_type: typeSelect.value
+                };
+                
+                // Handle different allocation types
+                if (typeSelect.value === 'percentage' && amountInput.value) {
+                    potConfig.percentage = parseFloat(amountInput.value);
+                } else if (typeSelect.value === 'fixed_amount' && amountInput.value) {
+                    potConfig.amount = poundsToPence(amountInput.value);
+                } else if (typeSelect.value === 'use_all_remaining') {
+                    // No amount needed for use_all_remaining
+                } else if (amountInput.value) {
+                    // Fallback: use amount for other types
+                    potConfig.amount = poundsToPence(amountInput.value);
+                }
+                
+                investmentPots.push(potConfig);
+            }
+        });
+        
+        // Get goal pots toggle setting
+        const includeGoalPots = document.getElementById('editIncludeGoalPots')?.checked !== false; // Default to true
+        
+        return {
+            trigger_type: triggerType,
+            holding_pot_id: holdingPot || null,
+            bills_pot_id: billsPot || null,
+            priority_pots: priorityPots,
+            investment_pots: investmentPots,
+            include_goal_pots: includeGoalPots,
+            holding_reserve_amount: poundsToPence(holdingReserveAmount),
+            min_holding_balance: poundsToPence(minHoldingBalance) || 10000,
+            ...triggerConfig
+        };
+    }
+    
+    function buildAutosorterConfig() {
+        const triggerType = document.getElementById('autosorterTriggerType').value;
+        const holdingPot = document.getElementById('holdingPot').value;
+        const billsPot = document.getElementById('billsPot').value;
+        
+        if (!holdingPot) {
+            alert('Please select a holding pot');
+            return null;
+        }
+        
+        const config = {
+            trigger_type: triggerType,
+            holding_pot_id: holdingPot,
+            bills_pot_id: billsPot || null
+        };
+        
+        // Add trigger-specific configuration
+        switch(triggerType) {
+            case 'payday_date':
+                const paydayDate = document.getElementById('paydayDate')?.value;
+                if (paydayDate) config.payday_date = parseInt(paydayDate);
+                break;
+            case 'time_of_day':
+                const timeDay = document.getElementById('timeDay')?.value;
+                const timeHour = document.getElementById('timeHour')?.value;
+                const timeMinute = document.getElementById('timeMinute')?.value;
+                if (timeDay && timeHour !== undefined && timeMinute !== undefined) {
+                    config.time_of_day_trigger = {
+                        day_of_month: parseInt(timeDay),
+                        hour: parseInt(timeHour),
+                        minute: parseInt(timeMinute)
+                    };
+                }
+                break;
+            case 'transaction_based':
+                const transactionThreshold = document.getElementById('transactionThreshold')?.value;
+                const descriptionPattern = document.getElementById('descriptionPattern')?.value;
+                config.transaction_trigger = {
+                    threshold: transactionThreshold ? parseInt(transactionThreshold) : null,
+                    description_pattern: descriptionPattern || null
+                };
+                break;
+            case 'date_range':
+                const startDate = document.getElementById('startDate')?.value;
+                const endDate = document.getElementById('endDate')?.value;
+                if (startDate && endDate) {
+                    config.date_range_trigger = {
+                        start_date: startDate,
+                        end_date: endDate
+                    };
+                }
+                break;
+            case 'combined_conditions':
+                const combinationLogic = document.getElementById('combinationLogic')?.value || 'AND';
+                const conditions = [];
+                document.querySelectorAll('#combinedConditions > div').forEach(div => {
+                    const conditionType = div.querySelector('.conditionType')?.value;
+                    const conditionValue = div.querySelector('.conditionValue')?.value;
+                    if (conditionType && conditionValue) {
+                        conditions.push({
+                            type: conditionType,
+                            value: conditionValue
+                        });
+                    }
+                });
+                config.combined_conditions = {
+                    logic: combinationLogic,
+                    conditions: conditions
+                };
+                break;
+                         case 'automation_trigger':
+                 const triggerOnSweep = document.getElementById('triggerOnSweep')?.checked;
+                 const triggerOnTopup = document.getElementById('triggerOnTopup')?.checked;
+                 const triggerOnAutosorter = document.getElementById('triggerOnAutosorter')?.checked;
+                 const minSweepAmount = document.getElementById('minSweepAmount')?.value;
+                 
+                 config.automation_trigger = {
+                     trigger_on_sweep: triggerOnSweep || false,
+                     trigger_on_topup: triggerOnTopup || false,
+                     trigger_on_autosorter: triggerOnAutosorter || false,
+                     min_sweep_amount: minSweepAmount ? Math.round(parseFloat(minSweepAmount) * 100) : 100000
+                 };
+                 break;
+            case 'manual_only':
+                // No additional config needed for manual only
+                break;
+        }
+        
+        // Add priority pots
+        const priorityPots = [];
+        const priorityElements = document.querySelectorAll('.priorityPot');
+        priorityElements.forEach((element, index) => {
+            const potId = element.value;
+            const type = element.parentElement.querySelector('.priorityType').value;
+            const amount = element.parentElement.querySelector('.priorityAmount').value;
+            
+            if (potId) {
+                const potConfig = {
+                    pot_id: potId,
+                    allocation_type: type,
+                    priority: index
+                };
+                
+                // Handle different allocation types
+                if (type === 'percentage' && amount) {
+                    potConfig.percentage = parseFloat(amount);
+                } else if (type === 'fixed_amount' && amount) {
+                    potConfig.amount = poundsToPence(amount);
+                } else if (amount) {
+                    // Fallback: use amount for other types
+                    potConfig.amount = poundsToPence(amount);
+                }
+                
+                priorityPots.push(potConfig);
+            }
+        });
+        
+        // Goal pots are now automatic - no manual selection needed
+        const goalPots = [];
+        
+        // Get goal pots toggle setting
+        const includeGoalPots = document.getElementById('includeGoalPots')?.checked !== false; // Default to true
+        
+        // Add investment pots
+        const investmentPots = [];
+        const investmentElements = document.querySelectorAll('.investmentPot');
+        investmentElements.forEach((element, index) => {
+            const potId = element.value;
+            const type = element.parentElement.querySelector('.investmentType').value;
+            const amount = element.parentElement.querySelector('.investmentAmount').value;
+            
+            if (potId) {
+                const potConfig = {
+                    pot_id: potId,
+                    allocation_type: type,
+                    use_all_remaining: type === 'use_all_remaining',
+                    priority: index
+                };
+                
+                // Handle different allocation types
+                if (type === 'percentage' && amount) {
+                    potConfig.percentage = parseFloat(amount);
+                } else if (type === 'fixed_amount' && amount) {
+                    potConfig.amount = poundsToPence(amount);
+                } else if (type === 'use_all_remaining') {
+                    // No amount needed for use_all_remaining
+                } else if (amount) {
+                    // Fallback: use amount for other types
+                    potConfig.amount = poundsToPence(amount);
+                }
+                
+                investmentPots.push(potConfig);
+            }
+        });
+        
+        // Add holding configuration
+        const holdingReserveAmount = document.getElementById('holdingReserveAmount')?.value;
+        const minHoldingBalance = document.getElementById('minHoldingBalance')?.value;
+        
+        config.priority_pots = priorityPots;
+        config.goal_pots = goalPots;
+        config.investment_pots = investmentPots;
+        config.include_goal_pots = includeGoalPots;
+        
+        if (holdingReserveAmount) {
+            config.holding_reserve_amount = poundsToPence(holdingReserveAmount);
+        }
+        
+        if (minHoldingBalance) {
+            config.min_holding_balance = poundsToPence(minHoldingBalance);
+        }
+        
+        return config;
+    }
+    
+    function buildAutoTopupConfig() {
+        const sourceAccount = document.getElementById('sourceAccount').value;
+        const targetPot = document.getElementById('targetPotTopup').value;
+        const amount = document.getElementById('topupAmount').value;
+        const targetBalance = document.getElementById('topupTargetBalance').value;
+        const triggerType = document.getElementById('topupTriggerType').value;
+        const triggerDay = document.getElementById('topupTriggerDay')?.value;
+        const triggerHour = document.getElementById('topupTriggerHour')?.value;
+        const triggerMinute = document.getElementById('topupTriggerMinute')?.value;
+        const triggerInterval = document.getElementById('topupTriggerInterval')?.value;
+        const minBalance = document.getElementById('topupMinBalance').value;
+        
+        if (!sourceAccount || !targetPot || !amount) {
+            alert('Please fill in all required fields');
+            return null;
+        }
+        
+        const config = {
+            source_account_id: sourceAccount,
+            target_pot_id: targetPot,
+            amount: poundsToPence(amount),
+            trigger_type: triggerType,
+            min_balance: minBalance ? poundsToPence(minBalance) : null
+        };
+        
+        // Add target balance if specified
+        if (targetBalance) {
+            config.target_balance = poundsToPence(targetBalance);
+        }
+        
+        // Add trigger-specific fields
+        if (triggerDay) {
+            config.trigger_day = parseInt(triggerDay);
+        }
+        if (triggerHour) {
+            config.trigger_hour = parseInt(triggerHour);
+        }
+        if (triggerMinute) {
+            config.trigger_minute = parseInt(triggerMinute);
+        }
+        if (triggerInterval) {
+            config.trigger_interval = parseInt(triggerInterval);
+        }
+        
+        return config;
+    }
+    
+
+    
+    async function executeAutomation() {
+        try {
+            const response = await fetch('/api/automation/execute', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Automation executed successfully!');
+                refreshRules();
+            } else {
+                alert('Error executing automation: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error executing automation:', error);
+            alert('Error executing automation');
+        }
+    }
+    
+    async function triggerAutomation() {
+        try {
+            const response = await fetch('/api/automation/trigger', { method: 'POST' });
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('Automation triggered manually! Check logs for details.');
+                refreshRules();
+            } else {
+                alert('Error triggering automation: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error triggering automation:', error);
+            alert('Error triggering automation');
+        }
+    }
+    
+    async function getQueueStatus() {
+        try {
+            const response = await fetch('/api/automation/queue/status');
+            const data = await response.json();
+            
+            if (data.success) {
+                displayQueueStatus(data.queue_status);
+            } else {
+                alert('Error getting queue status: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error getting queue status:', error);
+            alert('Error getting queue status');
+        }
+    }
+    
+    function displayQueueStatus(status) {
+        const queueStatusDiv = document.getElementById('queue-status');
+        const queueSection = document.querySelector('.queue-status-section');
+        
+        const html = `
+            <div class="queue-info">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h4>${status.queue_size}</h4>
+                            <p>Items in Queue</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h4>${status.active_workers}</h4>
+                            <p>Active Workers</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h4>${status.total_executed}</h4>
+                            <p>Total Executed</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <h4>${status.total_failed}</h4>
+                            <p>Total Failed</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h5>Completed Tasks (${status.completed_tasks.length})</h5>
+                        <ul class="list-group">
+                            ${status.completed_tasks.map(task => `<li class="list-group-item">${task}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Dependencies</h5>
+                        <ul class="list-group">
+                            ${Object.entries(status.dependency_graph).map(([task, deps]) => 
+                                `<li class="list-group-item"><strong>${task}:</strong> ${deps.join(', ')}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        queueStatusDiv.innerHTML = html;
+        queueSection.style.display = 'block';
+    }
+    
+    async function clearQueue() {
+        if (!confirm('Are you sure you want to clear the entire automation queue? This will cancel all pending executions.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/automation/queue/clear', { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Queue cleared successfully!');
+                getQueueStatus(); // Refresh queue status
+            } else {
+                alert('Error clearing queue: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error clearing queue:', error);
+            alert('Error clearing queue');
+        }
+    }
+    
+    async function getSweepExecutions() {
+        try {
+            const response = await fetch('/api/automation/sweep/executions');
+            const data = await response.json();
+            
+            if (data.success) {
+                displaySweepExecutions(data);
+            } else {
+                alert('Error getting sweep executions: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error getting sweep executions:', error);
+            alert('Error getting sweep executions');
+        }
+    }
+    
+    function displaySweepExecutions(data) {
+        const sweepExecutionsDiv = document.getElementById('sweep-executions');
+        const sweepSection = document.querySelector('.sweep-executions-section');
+        
+        const sweepExecutions = data.sweep_executions;
+        const totalExecutions = data.total_sweep_executions;
+        
+        let html = `
+            <div class="sweep-info">
+                <div class="alert alert-info">
+                    <strong>Total Sweep Executions:</strong> ${totalExecutions}
+                </div>
+        `;
+        
+        if (Object.keys(sweepExecutions).length === 0) {
+            html += '<p>No sweep rules have been executed yet.</p>';
+        } else {
+            html += '<div class="row">';
+            for (const [ruleId, info] of Object.entries(sweepExecutions)) {
+                const lastResult = info.last_result;
+                const successStatus = lastResult.success ? '✅ Success' : '❌ Failed';
+                const triggerReason = lastResult.trigger_reason || 'Unknown trigger';
+                const executionResult = lastResult.reason || lastResult.error || 'No execution details';
+                
+                // Add more detailed information
+                let details = '';
+                if (lastResult.success) {
+                    if (lastResult.total_moved) {
+                        details += `<p><strong>Amount Moved:</strong> £${(lastResult.total_moved / 100).toFixed(2)}</p>`;
+                    }
+                    if (lastResult.total_distributed) {
+                        details += `<p><strong>Amount Distributed:</strong> £${(lastResult.total_distributed / 100).toFixed(2)}</p>`;
+                    }
+                    if (lastResult.sources_processed) {
+                        details += `<p><strong>Sources Processed:</strong> ${lastResult.sources_processed.length}</p>`;
+                    }
+                }
+                
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <strong>Rule ID:</strong> ${ruleId}
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Execution Count:</strong> ${info.execution_count}</p>
+                                <p><strong>Last Execution:</strong> ${info.last_execution || 'Never'}</p>
+                                <p><strong>Last Status:</strong> ${successStatus}</p>
+                                <p><strong>Trigger Reason:</strong> ${triggerReason}</p>
+                                <p><strong>Execution Result:</strong> ${executionResult}</p>
+                                ${details}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        sweepExecutionsDiv.innerHTML = html;
+        sweepSection.style.display = 'block';
+    }
+    
+    function refreshRules() {
+        loadStats();
+        loadRules();
+    }
+    
+    async function toggleRule(ruleId) {
+        try {
+            const response = await fetch(`/api/automation/rules/${ruleId}/toggle`, {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                loadRules();
+                loadStats();
+            } else {
+                alert('Error toggling rule');
+            }
+        } catch (error) {
+            console.error('Error toggling rule:', error);
+            alert('Error toggling rule');
+        }
+    }
+    
+    async function editRule(ruleId) {
+        try {
+            console.log('Editing rule:', ruleId);
+            
+            // First, get the current rule data
+            const response = await fetch(`/api/automation/rules/${ruleId}`);
+            console.log('Get rule response:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                alert(`Error loading rule data: ${response.status} - ${errorText}`);
+                return;
+            }
+            
+            const rule = await response.json();
+            console.log('Rule data:', rule);
+            
+            // Load accounts and pots for the edit form
+            await loadAccountsAndPots();
+            
+            // Show edit modal with full configuration
+            showEditModal(rule);
+            
+        } catch (error) {
+            console.error('Error editing rule:', error);
+            alert(`Error editing rule: ${error.message}`);
+        }
+    }
+    
+    function showEditModal(rule) {
+        // Create edit modal HTML
+        const modalHTML = `
+            <div id="editRuleModal" class="modal" style="display: block; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>Edit Automation Rule</h2>
+                        <span onclick="closeEditModal()" style="cursor: pointer; font-size: 24px;">&times;</span>
+                    </div>
+                    
+                    <form id="editRuleForm">
+                        <input type="hidden" id="editRuleId" value="${rule.id}">
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="editRuleName" style="display: block; margin-bottom: 5px; font-weight: bold;">Rule Name:</label>
+                            <input type="text" id="editRuleName" value="${rule.name}" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rule Type:</label>
+                            <input type="text" value="${rule.rule_type}" disabled style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: #f8f9fa;">
+                            <small style="color: #666;">Rule type cannot be changed after creation</small>
+                        </div>
+                        
+                        <div id="editConfigFields" style="margin-bottom: 20px;">
+                            <!-- Configuration fields will be populated based on rule type -->
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+                                <input type="checkbox" id="editRuleEnabled" ${rule.enabled ? 'checked' : ''}> Enable rule
+                            </label>
+                        </div>
+                        
+                        <div style="text-align: right;">
+                            <button type="button" onclick="closeEditModal()" style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer;">Cancel</button>
+                            <button type="submit" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Update Rule</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Populate configuration fields based on rule type
+        populateEditConfigFields(rule);
+        
+        // Handle form submission
+        document.getElementById('editRuleForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            updateRule(rule.id);
+        });
+    }
+    
+    function closeEditModal() {
+        const modal = document.getElementById('editRuleModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    function populateEditConfigFields(rule) {
+        const configFields = document.getElementById('editConfigFields');
+        
+        switch(rule.rule_type) {
+            case 'pot_sweep':
+                configFields.innerHTML = getEditPotSweepConfigHTML(rule.config);
+                break;
+            case 'autosorter':
+                configFields.innerHTML = getEditAutosorterConfigHTML(rule.config);
+                break;
+            case 'auto_topup':
+                configFields.innerHTML = getEditAutoTopupConfigHTML(rule.config);
+                break;
+            case 'bills_pot_logic':
+                configFields.innerHTML = getEditBillsPotLogicConfigHTML(rule.config);
+                break;
+        }
+    }
+    
+    function getEditAutosorterConfigHTML(config) {
+        const pots = window.availablePots || [];
+        const selectedTriggerType = config.trigger_type || 'payday_date';
+        const selectedHoldingPot = config.holding_pot_id || '';
+        const selectedBillsPot = config.bills_pot_id || '';
+        const holdingReserveAmount = penceToPounds(config.holding_reserve_amount || '');
+        const minHoldingBalance = penceToPounds(config.min_holding_balance || 10000);
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Intelligent Money Distribution Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="editAutosorterTriggerType" onchange="updateEditAutosorterConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="payday_date" ${selectedTriggerType === 'payday_date' ? 'selected' : ''}>Payday Date (legacy)</option>
+                        <option value="time_of_day" ${selectedTriggerType === 'time_of_day' ? 'selected' : ''}>Time of Day</option>
+                        <option value="transaction_based" ${selectedTriggerType === 'transaction_based' ? 'selected' : ''}>Transaction Based</option>
+                        <option value="date_range" ${selectedTriggerType === 'date_range' ? 'selected' : ''}>Date Range</option>
+                        <option value="combined_conditions" ${selectedTriggerType === 'combined_conditions' ? 'selected' : ''}>Combined Conditions</option>
+                        <option value="automation_trigger" ${selectedTriggerType === 'automation_trigger' ? 'selected' : ''}>Automation Trigger</option>
+                        <option value="manual_only" ${selectedTriggerType === 'manual_only' ? 'selected' : ''}>Manual Only</option>
+                    </select>
+                </div>
+                
+                <div id="editAutosorterTriggerConfig">
+                    ${getEditAutosorterTriggerConfigHTML(selectedTriggerType, config)}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Holding Pot:</label>
+                    <select id="editHoldingPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select holding pot...</option>
+                        ${pots.map(pot => `<option value="${pot.id}" ${pot.id === selectedHoldingPot ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bills Pot:</label>
+                    <select id="editBillsPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select bills pot...</option>
+                        ${pots.map(pot => `<option value="${pot.id}" ${pot.id === selectedBillsPot ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Priority Pots:</label>
+                    <div id="editPriorityPots">
+                        ${(config.priority_pots || []).map((priority, index) => `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <select class="editPriorityPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">Select priority pot...</option>
+                                    ${pots.map(pot => `<option value="${pot.id}" ${pot.id === priority.pot_id ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                                </select>
+                                <select class="editPriorityType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="fixed_amount" ${priority.allocation_type === 'fixed_amount' ? 'selected' : ''}>Fixed Amount</option>
+                                    <option value="percentage" ${priority.allocation_type === 'percentage' ? 'selected' : ''}>Percentage</option>
+                                </select>
+                                <input type="number" step="0.01" class="editPriorityAmount" value="${penceToPounds(priority.amount)}" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" onclick="removeEditPriorityPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" onclick="addEditPriorityPot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Priority Pot</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Goal Pots:</label>
+                    <div style="background: #e9ecef; padding: 10px; border-radius: 4px; font-style: italic;">
+                        Goal pots are automatically selected from all pots with goals that aren't allocated in Priority or Investment sections. 
+                        No manual selection required.
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="editIncludeGoalPots" ${config.include_goal_pots !== false ? 'checked' : ''} style="width: 16px; height: 16px;">
+                            <span>Include goal pots in distribution</span>
+                        </label>
+                        <small style="color: #6c757d; display: block; margin-top: 5px;">
+                            When enabled, remaining funds will be distributed to pots with goals. When disabled, funds will skip goal pots and go directly to investment pots.
+                        </small>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Investment Pots:</label>
+                    <div id="editInvestmentPots">
+                        ${(config.investment_pots || []).map((investment, index) => `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <select class="editInvestmentPot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">Select investment pot...</option>
+                                    ${pots.map(pot => `<option value="${pot.id}" ${pot.id === investment.pot_id ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                                </select>
+                                <select class="editInvestmentType" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="fixed_amount" ${investment.allocation_type === 'fixed_amount' ? 'selected' : ''}>Fixed Amount</option>
+                                    <option value="percentage" ${investment.allocation_type === 'percentage' ? 'selected' : ''}>Percentage</option>
+                                    <option value="use_all_remaining" ${investment.allocation_type === 'use_all_remaining' ? 'selected' : ''}>Use All Remaining</option>
+                                </select>
+                                <input type="number" step="0.01" class="editInvestmentAmount" value="${penceToPounds(investment.amount)}" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" onclick="removeEditInvestmentPot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" onclick="addEditInvestmentPot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Investment Pot</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Holding Reserve (£):</label>
+                    <input type="number" step="0.01" id="editHoldingReserveAmount" value="${holdingReserveAmount}" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minimum Holding Balance (£):</label>
+                    <input type="number" step="0.01" id="editMinHoldingBalance" value="${minHoldingBalance}" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+            </div>
+        `;
+    }
+    
+    function getEditAutosorterTriggerConfigHTML(triggerType, config) {
+        switch(triggerType) {
+            case 'payday_date':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Payday Date (1-31):</label>
+                        <input type="number" id="editPaydayDate" min="1" max="31" value="${config.payday_date || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            case 'time_of_day':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Time (HH:MM):</label>
+                        <input type="time" id="editTriggerTime" value="${config.trigger_time || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            case 'transaction_based':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Transaction Amount Threshold (pence):</label>
+                        <input type="number" id="editTransactionThreshold" value="${config.transaction_threshold || ''}" placeholder="50000 for £500" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            case 'date_range':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Start Date:</label>
+                        <input type="date" id="editStartDate" value="${config.start_date || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">End Date:</label>
+                        <input type="date" id="editEndDate" value="${config.end_date || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            default:
+                return '';
+        }
+    }
+    
+    function getEditPotSweepConfigHTML(config) {
+        const accounts = window.availableAccounts || [];
+        const pots = window.availablePots || [];
+        
+        const selectedTriggerType = config.trigger_type || 'manual';
+        const selectedTargetPot = config.target_pot_name || '';
+        const triggerDay = config.trigger_day || '';
+        const triggerThreshold = config.trigger_threshold || '';
+        
+        // Check if main account is configured
+        const mainAccountSource = (config.sources || []).find(source => source.pot_name === 'main_account');
+        const includeMainAccount = mainAccountSource ? 'checked' : '';
+        const mainAccountStrategy = mainAccountSource ? mainAccountSource.strategy : 'fixed_amount';
+        const mainAccountAmount = mainAccountSource ? (
+            mainAccountSource.strategy === 'percentage' 
+                ? (mainAccountSource.percentage * 100).toFixed(2)
+                : (mainAccountSource.amount / 100).toFixed(2)
+        ) : '';
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Pot Sweep Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="editSweepTriggerType" onchange="updateEditSweepConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="manual" ${selectedTriggerType === 'manual' ? 'selected' : ''}>Manual (execute only when triggered)</option>
+                        <option value="monthly" ${selectedTriggerType === 'monthly' ? 'selected' : ''}>Monthly (specific day of month)</option>
+                        <option value="weekly" ${selectedTriggerType === 'weekly' ? 'selected' : ''}>Weekly (specific day of week)</option>
+                        <option value="payday_detection" ${selectedTriggerType === 'payday_detection' ? 'selected' : ''}>Payday Detection (automatic)</option>
+                        <option value="balance_threshold" ${selectedTriggerType === 'balance_threshold' ? 'selected' : ''}>Balance Threshold</option>
+                    </select>
+                </div>
+                
+                <div id="editSweepTriggerConfig">
+                    ${getEditSweepTriggerConfigHTML(selectedTriggerType, triggerDay, triggerThreshold, config.payday_threshold, config.payday_description_pattern)}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Pot:</label>
+                    <select id="editTargetPot" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select target pot...</option>
+                        ${pots.map(pot => `<option value="${pot.name}" ${pot.name === selectedTargetPot ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; margin-bottom: 10px; font-weight: bold;">
+                            <input type="checkbox" id="editIncludeMainAccount" onchange="toggleEditMainAccountConfig()" ${includeMainAccount} style="margin-right: 8px;">
+                            💳 Include Main Account in Sweep
+                        </label>
+                    </div>
+                    
+                    <div id="editMainAccountConfig" style="display: ${includeMainAccount ? 'block' : 'none'}; margin-left: 20px;">
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Main Account Strategy:</label>
+                            <select id="editMainAccountStrategy" onchange="updateEditMainAccountAmountConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="fixed_amount" ${mainAccountStrategy === 'fixed_amount' ? 'selected' : ''}>Fixed Amount</option>
+                                <option value="percentage" ${mainAccountStrategy === 'percentage' ? 'selected' : ''}>Percentage</option>
+                                <option value="remaining_balance" ${mainAccountStrategy === 'remaining_balance' ? 'selected' : ''}>Remaining Balance</option>
+                                <option value="all_available" ${mainAccountStrategy === 'all_available' ? 'selected' : ''}>All Available</option>
+                            </select>
+                        </div>
+                        
+                        <div id="editMainAccountAmountConfig" style="margin-bottom: 10px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Amount/Value:</label>
+                            <input type="number" step="0.01" id="editMainAccountAmount" value="${mainAccountAmount}" placeholder="Amount (£)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                        
+                        <div style="font-size: 0.8em; color: #666;">
+                            💡 <strong>Fixed Amount:</strong> Move exactly this amount<br>
+                            💡 <strong>Percentage:</strong> Move this % of main account balance<br>
+                            💡 <strong>Remaining Balance:</strong> Move everything except this minimum<br>
+                            💡 <strong>All Available:</strong> Move entire main account balance
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Source Pots:</label>
+                    <div id="editSourcePots">
+                        ${(config.sources || []).filter(source => source.pot_name !== 'main_account').map((source, index) => `
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <select class="editSourcePot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">Select source pot...</option>
+                                    ${pots.map(pot => `<option value="${pot.name}" ${pot.name === source.pot_name ? 'selected' : ''}>${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                                </select>
+                                <select class="editSourceStrategy" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="fixed_amount" ${source.strategy === 'fixed_amount' ? 'selected' : ''}>Fixed Amount</option>
+                                    <option value="percentage" ${source.strategy === 'percentage' ? 'selected' : ''}>Percentage</option>
+                                    <option value="remaining_balance" ${source.strategy === 'remaining_balance' ? 'selected' : ''}>Remaining Balance</option>
+                                    <option value="all_available" ${source.strategy === 'all_available' ? 'selected' : ''}>All Available</option>
+                                </select>
+                                <input type="number" step="0.01" class="editSourceAmount" value="${penceToPounds(source.amount || '')}" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <button type="button" onclick="removeEditSourcePot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" onclick="addEditSourcePot()" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Source Pot</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    function getEditSweepTriggerConfigHTML(triggerType, triggerDay, triggerThreshold, paydayThreshold, paydayDescriptionPattern) {
+        switch(triggerType) {
+            case 'monthly':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month:</label>
+                        <input type="number" id="editTriggerDay" min="1" max="31" value="${triggerDay}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            case 'weekly':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Week (1=Monday, 7=Sunday):</label>
+                        <input type="number" id="editTriggerDay" min="1" max="7" value="${triggerDay}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            case 'payday_detection':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Payday Threshold (£):</label>
+                        <input type="number" step="0.01" id="editPaydayThreshold" value="${penceToPounds(paydayThreshold || 50000)}" placeholder="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Minimum amount to consider as payday (default: £500)
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Description Pattern (optional):</label>
+                        <input type="text" id="editPaydayDescriptionPattern" value="${paydayDescriptionPattern || ''}" placeholder="e.g., SALARY, PAYMENT, EMPLOYER" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Only trigger on transactions containing this text (case-insensitive, leave empty to match any large transaction)
+                        </div>
+                    </div>
+                `;
+            case 'balance_threshold':
+                return `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Threshold Amount (£):</label>
+                        <input type="number" step="0.01" id="editTriggerThreshold" value="${penceToPounds(triggerThreshold)}" placeholder="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            default:
+                return '';
+        }
+    }
+    
+    function updateEditSweepConfig() {
+        const triggerType = document.getElementById('editSweepTriggerType').value;
+        const configDiv = document.getElementById('editSweepTriggerConfig');
+        configDiv.innerHTML = getEditSweepTriggerConfigHTML(triggerType, '', '', 50000, '');
+    }
+    
+    function addEditSourcePot() {
+        const sourcePotsDiv = document.getElementById('editSourcePots');
+        const pots = window.availablePots || [];
+        
+        const newSource = document.createElement('div');
+        newSource.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+                    newSource.innerHTML = `
+            <select class="editSourcePot" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select source pot...</option>
+                ${pots.map(pot => {
+                    if (pot.is_main_account) {
+                        return `<option value="${pot.name}">${pot.name}</option>`;
+                    } else {
+                        return `<option value="${pot.name}">${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`;
+                    }
+                }).join('')}
+            </select>
+            <select class="editSourceStrategy" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="fixed_amount">Fixed Amount</option>
+                <option value="percentage">Percentage</option>
+                <option value="remaining_balance">Remaining Balance</option>
+                <option value="all_available">All Available</option>
+            </select>
+            <input type="number" step="0.01" class="editSourceAmount" placeholder="Amount (£)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <button type="button" onclick="removeEditSourcePot(this)" style="padding: 8px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+        `;
+        
+        sourcePotsDiv.appendChild(newSource);
+    }
+    
+    function removeEditSourcePot(button) {
+        button.parentElement.remove();
+    }
+    
+    async function updateRule(ruleId) {
+        try {
+            const ruleName = document.getElementById('editRuleName').value.trim();
+            const enabled = document.getElementById('editRuleEnabled').checked;
+            
+            if (!ruleName) {
+                alert('Please enter a rule name');
+                return;
+            }
+            
+            // Get the rule type from the disabled input
+            const ruleType = document.querySelector('#editRuleModal input[disabled]').value;
+            
+            let config = {};
+            
+            switch(ruleType) {
+                case 'pot_sweep':
+                    config = buildEditPotSweepConfig();
+                    break;
+                case 'autosorter':
+                    config = buildEditAutosorterConfig();
+                    break;
+                case 'auto_topup':
+                    config = buildEditAutoTopupConfig();
+                    break;
+                case 'bills_pot_logic':
+                    config = buildEditBillsPotLogicConfig();
+                    break;
+            }
+            
+            if (!config) {
+                alert('Please complete the configuration');
+                return;
+            }
+            
+            const ruleData = {
+                name: ruleName,
+                config: config,
+                enabled: enabled
+            };
+            
+            const response = await fetch(`/api/automation/rules/${ruleId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ruleData)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                alert('Rule updated successfully!');
+                closeEditModal();
+                loadRules();
+                loadStats();
+            } else {
+                const errorData = await response.json();
+                alert(`Error updating rule: ${errorData.error || 'Unknown error'}`);
+            }
+            
+        } catch (error) {
+            console.error('Error updating rule:', error);
+            alert(`Error updating rule: ${error.message}`);
+        }
+    }
+    
+    function buildEditPotSweepConfig() {
+        const triggerType = document.getElementById('editSweepTriggerType').value;
+        const targetPot = document.getElementById('editTargetPot').value;
+        
+        if (!targetPot) {
+            alert('Please select a target pot');
+            return null;
+        }
+        
+        const config = {
+            trigger_type: triggerType,
+            target_pot_name: targetPot
+        };
+        
+        // Add trigger-specific configuration
+        switch(triggerType) {
+            case 'monthly':
+            case 'weekly':
+                const triggerDay = document.getElementById('editTriggerDay')?.value;
+                if (triggerDay) config.trigger_day = parseInt(triggerDay);
+                break;
+            case 'payday_detection':
+                const paydayThreshold = document.getElementById('editPaydayThreshold')?.value;
+                if (paydayThreshold) config.payday_threshold = poundsToPence(paydayThreshold);
+                const paydayDescriptionPattern = document.getElementById('editPaydayDescriptionPattern')?.value;
+                if (paydayDescriptionPattern && paydayDescriptionPattern.trim()) {
+                    config.payday_description_pattern = paydayDescriptionPattern.trim();
+                }
+                break;
+            case 'balance_threshold':
+                const threshold = document.getElementById('editTriggerThreshold')?.value;
+                if (threshold) config.trigger_threshold = poundsToPence(threshold);
+                break;
+        }
+        
+        // Add sources
+        const sources = [];
+        
+        // Add main account source if enabled
+        const includeMainAccount = document.getElementById('editIncludeMainAccount');
+        if (includeMainAccount && includeMainAccount.checked) {
+            const mainAccountStrategy = document.getElementById('editMainAccountStrategy').value;
+            const mainAccountAmount = document.getElementById('editMainAccountAmount').value;
+            
+            const mainAccountSource = {
+                pot_name: 'main_account',
+                strategy: mainAccountStrategy,
+                priority: 0
+            };
+            
+            // Add amount based on strategy
+            if (mainAccountStrategy === 'fixed_amount') {
+                mainAccountSource.amount = mainAccountAmount ? poundsToPence(mainAccountAmount) : null;
+            } else if (mainAccountStrategy === 'remaining_balance') {
+                mainAccountSource.min_balance = mainAccountAmount ? poundsToPence(mainAccountAmount) : null;
+            } else if (mainAccountStrategy === 'percentage') {
+                const percentage = mainAccountAmount ? parseFloat(mainAccountAmount) : null;
+                mainAccountSource.percentage = (percentage && !isNaN(percentage)) ? percentage / 100 : null;
+            }
+            
+            sources.push(mainAccountSource);
+        }
+        
+        // Add pot sources
+        const sourceElements = document.querySelectorAll('.editSourcePot');
+        sourceElements.forEach((element, index) => {
+            const potName = element.value;
+            const strategy = element.parentElement.querySelector('.editSourceStrategy').value;
+            const amount = element.parentElement.querySelector('.editSourceAmount').value;
+            
+            if (potName) {
+                const source = {
+                    pot_name: potName,
+                    strategy: strategy,
+                    priority: sources.length + index
+                };
+                
+                // Add amount based on strategy
+                if (strategy === 'fixed_amount') {
+                    source.amount = amount ? poundsToPence(amount) : null;
+                } else if (strategy === 'remaining_balance') {
+                    source.min_balance = amount ? poundsToPence(amount) : null;
+                } else if (strategy === 'percentage') {
+                    const percentage = amount ? parseFloat(amount) : null;
+                    source.percentage = (percentage && !isNaN(percentage)) ? percentage / 100 : null;
+                }
+                
+                sources.push(source);
+            }
+        });
+        
+        if (sources.length === 0) {
+            alert('Please add at least one source (main account or pot)');
+            return null;
+        }
+        
+        config.sources = sources;
+        return config;
+    }
+    
+    // Edit build functions for rule types
+    function buildEditAutoTopupConfig() {
+        const sourceAccount = document.getElementById('editSourceAccount').value;
+        const targetPot = document.getElementById('editTargetPotTopup').value;
+        const amount = document.getElementById('editTopupAmount').value;
+        const targetBalance = document.getElementById('editTopupTargetBalance')?.value;
+        const triggerType = document.getElementById('editTopupTriggerType').value;
+        const triggerDay = document.getElementById('editTopupTriggerDay')?.value;
+        const triggerHour = document.getElementById('editTopupTriggerHour')?.value;
+        const triggerMinute = document.getElementById('editTopupTriggerMinute')?.value;
+        const triggerInterval = document.getElementById('editTopupTriggerInterval')?.value;
+        const minBalance = document.getElementById('editTopupMinBalance').value;
+        
+        if (!sourceAccount || !targetPot || !amount) {
+            alert('Please fill in all required fields');
+            return null;
+        }
+        
+        const config = {
+            source_account_id: sourceAccount,
+            target_pot_id: targetPot,
+            amount: poundsToPence(amount),
+            trigger_type: triggerType,
+            min_balance: minBalance ? poundsToPence(minBalance) : null
+        };
+        
+        // Add target balance if specified
+        if (targetBalance) {
+            config.target_balance = poundsToPence(targetBalance);
+        }
+        
+        // Add trigger-specific fields
+        if (triggerDay) {
+            config.trigger_day = parseInt(triggerDay);
+        }
+        if (triggerHour) {
+            config.trigger_hour = parseInt(triggerHour);
+        }
+        if (triggerMinute) {
+            config.trigger_minute = parseInt(triggerMinute);
+        }
+        if (triggerInterval) {
+            config.trigger_interval = parseInt(triggerInterval);
+        }
+        
+        return config;
+    }
+    
+    function buildEditBillsPotLogicConfig() {
+        const analysisEnabled = document.getElementById('editAnalysisEnabled').checked;
+        const shortfallThreshold = document.getElementById('editShortfallThreshold').value;
+        
+        return {
+            analysis_enabled: analysisEnabled,
+            shortfall_threshold: shortfallThreshold ? poundsToPence(shortfallThreshold) : 10000
+        };
+    }
+    
+    // Missing edit configuration functions
+    function getEditAutoTopupConfigHTML(config) {
+        const accounts = window.availableAccounts || [];
+        const pots = window.availablePots || [];
+        
+        const selectedSourceAccount = config.source_account_id || '';
+        const selectedTargetPot = config.target_pot_id || '';
+        const amount = penceToPounds(config.amount || '');
+        const targetBalance = penceToPounds(config.target_balance || '');
+        const selectedTriggerType = config.trigger_type || 'balance_threshold';
+        const triggerDay = config.trigger_day || '';
+        const triggerHour = config.trigger_hour || '';
+        const triggerMinute = config.trigger_minute || '';
+        const triggerInterval = config.trigger_interval || '';
+        const minBalance = penceToPounds(config.min_balance || '');
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Auto Topup Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Source (Account/Pot):</label>
+                    <select id="editSourceAccount" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select source...</option>
+                        <option value="main_account" ${selectedSourceAccount === 'main_account' ? 'selected' : ''}>💳 Main Account</option>
+                        ${accounts.map(acc => `<option value="${acc.id}" ${acc.id === selectedSourceAccount ? 'selected' : ''}>🏦 ${acc.name} (${acc.account_number})</option>`).join('')}
+                        ${pots.map(pot => `<option value="${pot.id}" ${pot.id === selectedSourceAccount ? 'selected' : ''}>💰 ${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target (Account/Pot):</label>
+                    <select id="editTargetPotTopup" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select target...</option>
+                        <option value="main_account" ${selectedTargetPot === 'main_account' ? 'selected' : ''}>💳 Main Account</option>
+                        ${accounts.map(acc => `<option value="${acc.id}" ${acc.id === selectedTargetPot ? 'selected' : ''}>🏦 ${acc.name} (${acc.account_number})</option>`).join('')}
+                        ${pots.map(pot => `<option value="${pot.id}" ${pot.id === selectedTargetPot ? 'selected' : ''}>💰 ${pot.name} (${(pot.balance / 100).toFixed(2)})</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Amount (£):</label>
+                    <input type="number" step="0.01" id="editTopupAmount" value="${amount}" placeholder="500.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Maximum amount to transfer (if using target balance, this is the cap)
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Balance (£):</label>
+                    <input type="number" step="0.01" id="editTopupTargetBalance" value="${targetBalance}" placeholder="50.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        Optional: Top up to this balance (e.g., £50) instead of fixed amount
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Trigger Type:</label>
+                    <select id="editTopupTriggerType" onchange="updateEditTopupTriggerConfig()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="balance_threshold" ${selectedTriggerType === 'balance_threshold' ? 'selected' : ''}>Balance Threshold</option>
+                        <option value="monthly" ${selectedTriggerType === 'monthly' ? 'selected' : ''}>Monthly</option>
+                        <option value="weekly" ${selectedTriggerType === 'weekly' ? 'selected' : ''}>Weekly</option>
+                        <option value="daily" ${selectedTriggerType === 'daily' ? 'selected' : ''}>Daily</option>
+                        <option value="hourly" ${selectedTriggerType === 'hourly' ? 'selected' : ''}>Hourly</option>
+                        <option value="minute" ${selectedTriggerType === 'minute' ? 'selected' : ''}>Every X Minutes</option>
+                    </select>
+                </div>
+                
+                <div id="editTopupTriggerConfig">
+                    <!-- Trigger-specific configuration will be populated here -->
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minimum Balance (£):</label>
+                    <input type="number" step="0.01" id="editTopupMinBalance" value="${minBalance}" placeholder="30.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                        For balance threshold: trigger when balance falls below this amount
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function getEditBillsPotLogicConfigHTML(config) {
+        const shortfallThreshold = penceToPounds(config.shortfall_threshold || '');
+        const analysisEnabled = config.analysis_enabled !== false;
+        
+        return `
+            <div style="border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0;">Bills Pot Logic Configuration</h4>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+                        <input type="checkbox" id="editAnalysisEnabled" ${analysisEnabled ? 'checked' : ''}> Enable Analysis
+                    </label>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Shortfall Threshold (£):</label>
+                    <input type="number" step="0.01" id="editShortfallThreshold" value="${shortfallThreshold}" placeholder="100.00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+            </div>
+        `;
+    }
+    
+    async function deleteRule(ruleId, ruleName) {
+        try {
+            console.log('Deleting rule:', ruleId, ruleName);
+            
+            if (confirm(`Are you sure you want to delete "${ruleName}"?\n\nThis action cannot be undone.`)) {
+                console.log('User confirmed deletion');
+                
+                const response = await fetch(`/api/automation/rules/${ruleId}`, {
+                    method: 'DELETE'
+                });
+                
+                console.log('Delete response:', response.status);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Delete result:', result);
+                    loadRules();
+                    loadStats();
+                    alert('Rule deleted successfully!');
+                } else {
+                    const errorData = await response.json();
+                    console.error('Delete error:', errorData);
+                    alert(`Error deleting rule: ${errorData.error || 'Unknown error'}`);
+                }
+            } else {
+                console.log('User cancelled deletion');
+            }
+        } catch (error) {
+            console.error('Error deleting rule:', error);
+            alert(`Error deleting rule: ${error.message}`);
+        }
+    }
+    
+    function updateTopupTriggerConfig() {
+        const triggerType = document.getElementById('topupTriggerType').value;
+        const configDiv = document.getElementById('topupTriggerConfig');
+        
+        let configHTML = '';
+        
+        switch(triggerType) {
+            case 'monthly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month:</label>
+                        <input type="number" id="topupTriggerDay" min="1" max="31" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'weekly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Week (1=Monday, 7=Sunday):</label>
+                        <input type="number" id="topupTriggerDay" min="1" max="7" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'daily':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Time:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="topupTriggerHour" min="0" max="23" value="9" placeholder="Hour" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <input type="number" id="topupTriggerMinute" min="0" max="59" value="0" placeholder="Minute" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'hourly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minute of Hour:</label>
+                        <input type="number" id="topupTriggerMinute" min="0" max="59" value="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'minute':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Interval (minutes):</label>
+                        <input type="number" id="topupTriggerInterval" min="1" max="1440" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Check every X minutes (1-1440, where 1440 = 24 hours)
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'balance_threshold':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <div style="font-size: 0.8em; color: #666;">
+                            Will trigger when source balance falls below the minimum balance threshold
+                        </div>
+                    </div>
+                `;
+                break;
+        }
+        
+        configDiv.innerHTML = configHTML;
+    }
+    
+    function updateEditTopupTriggerConfig() {
+        const triggerType = document.getElementById('editTopupTriggerType').value;
+        const configDiv = document.getElementById('editTopupTriggerConfig');
+        
+        let configHTML = '';
+        
+        switch(triggerType) {
+            case 'monthly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Month:</label>
+                        <input type="number" id="editTopupTriggerDay" min="1" max="31" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'weekly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Day of Week (1=Monday, 7=Sunday):</label>
+                        <input type="number" id="editTopupTriggerDay" min="1" max="7" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'daily':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Time:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="editTopupTriggerHour" min="0" max="23" value="9" placeholder="Hour" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <input type="number" id="editTopupTriggerMinute" min="0" max="59" value="0" placeholder="Minute" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'hourly':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Minute of Hour:</label>
+                        <input type="number" id="editTopupTriggerMinute" min="0" max="59" value="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+                break;
+            case 'minute':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Interval (minutes):</label>
+                        <input type="number" id="editTopupTriggerInterval" min="1" max="1440" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Check every X minutes (1-1440, where 1440 = 24 hours)
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'balance_threshold':
+                configHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <div style="font-size: 0.8em; color: #666;">
+                            Will trigger when source balance falls below the minimum balance threshold
+                        </div>
+                    </div>
+                `;
+                break;
+        }
+        
+        configDiv.innerHTML = configHTML;
+    }
+</script>
+{% endblock %} 

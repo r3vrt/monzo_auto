@@ -21,10 +21,14 @@
         __init__.py
         client.py
         sync.py
-      business/
+      automation/
         __init__.py
+        pot_sweeps.py
         autosorter.py
-        analytics.py
+        auto_topup.py
+        bills_pot_logic.py
+        pot_manager.py
+        rules.py
       api/
         __init__.py
         routes.py
@@ -51,7 +55,7 @@
   - `Account`: id, name, type, closed, etc.
   - `Pot`: id, account_id, name, pot_current_id, etc.
   - `Transaction`: id, account_id, pot_current_id, created, amount, description, category, metadata (JSON), etc.
-  - `SyncMeta`: id, account_id, last_synced_at, etc.
+  - `Transaction`: id, account_id, pot_current_id, created, amount, description, category, metadata (JSON), etc.
 - Migrations:
   - Use Alembic for schema migrations.
 - Session management:
@@ -85,15 +89,33 @@
 
 ---
 
-## 5. Business Logic Layer
+## 5. Automation Layer
 
+- Pot Sweeps:
+  - Move money between pots and accounts based on rules.
+  - Support monthly, balance threshold, and manual triggers.
+  - Safety checks for insufficient funds.
 - Autosorter:
-  - Use DB as source of truth.
-  - Bills pot logic: always use `pot_current_id` for calculations.
-- Analytics:
-  - Use DB queries for all calculations.
-- Configurable exclusions:
-  - Allow user to exclude accounts/pots via config or UI.
+  - Automatically categorize transactions into pots based on rules.
+  - Support category, merchant, description, and amount-based conditions.
+  - Priority-based rule matching.
+- Auto Topup:
+  - Automatically add money to pots based on rules.
+  - Support monthly, weekly, balance threshold, and transaction-based triggers.
+  - Track execution times to prevent duplicate runs.
+- Bills Pot Logic:
+  - Use pot_current_id for accurate transaction queries when bills pots are in use.
+  - Calculate pay cycle spending and shortfalls.
+  - Handle bills pot balances and spending patterns.
+- Pot Manager:
+  - Structured pot management without fuzzy name matching.
+  - Explicit pot categories (bills, savings, holding, spending, emergency, investment).
+  - User-configurable pot assignments to categories.
+  - Avoid fuzzy searches for "savings" or "holding" pots.
+- Rules Management:
+  - Database storage for all automation rules.
+  - CRUD operations for rule management.
+  - Enable/disable rules and track execution history.
 
 ---
 
@@ -159,7 +181,7 @@
 1. Project scaffolding, tooling, and DB models
 2. Monzo API client and OAuth2
 3. Sync logic (startup + incremental)
-4. Business logic (autosorter, analytics)
+4. Automation logic (pot sweeps, autosorter, auto topup)
 5. API and UI
 6. Background jobs and scheduling
 7. Testing and logging

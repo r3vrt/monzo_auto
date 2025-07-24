@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Monzo App{% endblock %}
+
+{% block page_title %}🏠 Dashboard{% endblock %}
+{% block page_subtitle %}Welcome to your Monzo automation dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h5 class="alert-heading">🚀 Quick Start</h5>
+            <p class="mb-0">
+                Get started by importing your Monzo accounts and setting up automation rules. 
+                <a href="{{ url_for('ui.accounts_select_ui') }}" class="alert-link">Import your first account</a> or 
+                <a href="{{ url_for('ui.auth_start') }}" class="alert-link">reconnect to Monzo</a> if needed.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for page in pages %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <span style="font-size: 3rem;">{{ page.icon }}</span>
+                </div>
+                <h5 class="card-title">{{ page.name }}</h5>
+                <p class="card-text text-muted">{{ page.description }}</p>
+                <a href="{{ page.url }}" class="btn btn-primary">Go to {{ page.name }}</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📊 Quick Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-primary" id="accounts-count">-</h3>
+                            <p class="text-muted">Active Accounts</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-success" id="pots-count">-</h3>
+                            <p class="text-muted">Total Pots</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-info" id="rules-count">-</h3>
+                            <p class="text-muted">Automation Rules</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-warning" id="last-sync">-</h3>
+                        <p class="text-muted">Last Sync</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load dashboard stats
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardStats();
+});
+
+async function loadDashboardStats() {
+    try {
+        // Load accounts count
+        const accountsResponse = await fetch('/api/accounts');
+        if (accountsResponse.ok) {
+            const accountsData = await accountsResponse.json();
+            document.getElementById('accounts-count').textContent = accountsData.accounts ? accountsData.accounts.length : 0;
+        }
+        
+        // Load pots count
+        const potsResponse = await fetch('/api/pots/categories');
+        if (potsResponse.ok) {
+            const potsData = await potsResponse.json();
+            const totalPots = Object.values(potsData.categories || {}).reduce((sum, pots) => sum + pots.length, 0) + (potsData.uncategorized || []).length;
+            document.getElementById('pots-count').textContent = totalPots;
+        }
+        
+        // Load automation rules count
+        const rulesResponse = await fetch('/api/automation/status');
+        if (rulesResponse.ok) {
+            const rulesData = await rulesResponse.json();
+            document.getElementById('rules-count').textContent = rulesData.total_rules || 0;
+        }
+        
+        // Load last sync info
+        const syncResponse = await fetch('/api/sync/status');
+        if (syncResponse.ok) {
+            const syncData = await syncResponse.json();
+            const lastSync = syncData.last_sync || 'Never';
+            document.getElementById('last-sync').textContent = lastSync === 'Never' ? 'Never' : 'Recent';
+        }
+        
+    } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+    }
+}
+</script>
+{% endblock %} 
