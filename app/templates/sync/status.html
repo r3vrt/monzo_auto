@@ -87,8 +87,8 @@
                                     <div class="small text-truncate">{{ txn.description }}</div>
                                     <div class="text-muted small">{{ txn.created.strftime('%Y-%m-%d') if txn.created else '' }}</div>
                                 </div>
-                                <div class="badge-amount-container ms-2">
-                                    <span class="badge badge-amount {{ 'bg-success' if txn.amount > 0 else 'bg-danger' }}">
+                                <div class="ms-2" style="min-width: 100px; width: 100px; text-align: right; flex-shrink: 0;">
+                                    <span class="badge {{ 'bg-success' if txn.amount > 0 else 'bg-danger' }}" style="min-width: 80px; width: 80px; text-align: center; display: inline-block;">
                                         {{ "%.2f"|format(txn.amount / 100.0) }} {{ txn.currency }}
                                     </span>
                                 </div>
@@ -117,8 +117,8 @@
                                 <div class="flex-grow-1">
                                     <div class="small">{{ pot.name }}</div>
                                 </div>
-                                <div class="badge-amount-container ms-2">
-                                    <span class="badge badge-amount bg-info">
+                                <div class="ms-2" style="min-width: 100px; width: 100px; text-align: right; flex-shrink: 0;">
+                                    <span class="badge bg-info" style="min-width: 80px; width: 80px; text-align: center; display: inline-block;">
                                         {{ "%.2f"|format(pot.balance / 100.0) }} {{ pot.currency }}
                                     </span>
                                 </div>
