@@ -262,13 +262,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         )
         
         # Add a reasonable time limit to prevent pulling too much historical data
-        # Use 10 days as a safety limit for incremental syncs
-        time_limit = now - timedelta(days=10)
+        # Use 3 days as a safety limit for incremental syncs to prevent hangs
+        time_limit = now - timedelta(days=3)
         time_limit_iso = time_limit.isoformat()
         
         try:
             logger.info(
-                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 10-day time limit: {time_limit_iso})"
+                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit_iso})"
             )
             transactions = monzo.client._get_all_transactions(
                 account_id, since=latest_txn_id
@@ -280,8 +280,16 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 if txn.created >= time_limit
             ]
             
+            # Additional safety: limit to max 100 transactions to prevent hangs
+            max_transactions = 100
+            if len(filtered_transactions) > max_transactions:
+                logger.warning(
+                    f"[SYNC] Limiting transactions from {len(filtered_transactions)} to {max_transactions} to prevent hangs"
+                )
+                filtered_transactions = filtered_transactions[:max_transactions]
+            
             logger.info(
-                f"[SYNC] Pulled {len(transactions)} transactions, filtered to {len(filtered_transactions)} within 10-day limit"
+                f"[SYNC] Pulled {len(transactions)} transactions, filtered to {len(filtered_transactions)} within 3-day limit"
             )
             
             if filtered_transactions:
@@ -484,10 +492,10 @@ def sync_bills_pot_transactions(
             
             # Add a reasonable time limit to prevent pulling too much historical data
             now = datetime.now(timezone.utc)
-            time_limit = now - timedelta(days=10)
+            time_limit = now - timedelta(days=3)
             
             logger.info(
-                f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 10-day time limit: {time_limit.isoformat()})"
+                f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit.isoformat()})"
             )
             
             all_transactions = monzo.client._get_all_transactions(
@@ -500,8 +508,16 @@ def sync_bills_pot_transactions(
                 if txn.created >= time_limit
             ]
             
+            # Additional safety: limit to max 50 transactions to prevent hangs
+            max_transactions = 50
+            if len(transactions) > max_transactions:
+                logger.warning(
+                    f"[SYNC] Limiting bills pot transactions from {len(transactions)} to {max_transactions} to prevent hangs"
+                )
+                transactions = transactions[:max_transactions]
+            
             logger.info(
-                f"[SYNC] Pulled {len(all_transactions)} bills pot transactions, filtered to {len(transactions)} within 10-day limit"
+                f"[SYNC] Pulled {len(all_transactions)} bills pot transactions, filtered to {len(transactions)} within 3-day limit"
             )
 
         logger.info(
