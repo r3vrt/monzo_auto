@@ -82,6 +82,12 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         account_id (str): Monzo account ID
         monzo (MonzoClient): Authenticated MonzoClient instance
     """
+    # Ensure we start with a clean transaction state
+    try:
+        db.rollback()
+    except Exception:
+        # If rollback fails, it might mean we're already in a clean state
+        pass
     # Get the monzo_user_id from the database user
     # user_id could be either the database user.id (int) or monzo_user_id (str)
     if isinstance(user_id, int):
@@ -279,6 +285,12 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.error(
                     f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
                 )
+                # Rollback transaction and continue with next chunk
+                try:
+                    db.rollback()
+                    logger.info("[SYNC] Database transaction rolled back after timeout")
+                except Exception as rollback_error:
+                    logger.error(f"[SYNC] Error during rollback: {rollback_error}")
                 # Continue with next chunk instead of failing completely
                 current_start = current_end
                 continue
@@ -286,6 +298,12 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.error(
                     f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
                 )
+                # Rollback transaction and continue with next chunk
+                try:
+                    db.rollback()
+                    logger.info("[SYNC] Database transaction rolled back after error")
+                except Exception as rollback_error:
+                    logger.error(f"[SYNC] Error during rollback: {rollback_error}")
                 # Continue with next chunk instead of failing completely
                 current_start = current_end
                 continue
@@ -506,6 +524,12 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         except Exception as e:
             # signal.alarm(0)
             logger.error(f"Incremental sync failed: {e}")
+            # Rollback the transaction to handle PostgreSQL aborted transaction state
+            try:
+                db.rollback()
+                logger.info("[SYNC] Database transaction rolled back after error")
+            except Exception as rollback_error:
+                logger.error(f"[SYNC] Error during rollback: {rollback_error}")
             # Don't update sync metadata on failure to avoid losing sync state
 
 
