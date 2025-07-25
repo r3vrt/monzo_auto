@@ -421,10 +421,47 @@ def sync_bills_pot_transactions(
 
         if first_time:
             logger.info(
-                f"[SYNC] No existing bills pot transactions for pot {bills_pot_id}, performing first-time sync"
+                f"[SYNC] No existing bills pot transactions for pot {bills_pot_id}, performing first-time sync with 10-day chunks"
             )
-            # Get all transactions for the bills pot (no date limit for first-time sync)
-            transactions = monzo.client._get_all_transactions(account_id=pot_account_id)
+            # For first-time sync, use 10-day chunks to avoid timeouts
+            now = datetime.now(timezone.utc)
+            start_date = now - timedelta(days=90)
+            chunk_size = 10  # days per chunk
+            
+            current_start = start_date
+            all_transactions = []
+            
+            while current_start < now:
+                current_end = min(current_start + timedelta(days=chunk_size), now)
+                
+                try:
+                    logger.info(
+                        f"[SYNC] Pulling bills pot transactions from {current_start.isoformat()} to {current_end.isoformat()}"
+                    )
+                    chunk_transactions = monzo.client._get_all_transactions(
+                        account_id=pot_account_id, 
+                        since=current_start.isoformat(), 
+                        before=current_end.isoformat()
+                    )
+                    logger.info(
+                        f"[SYNC] Pulled {len(chunk_transactions)} bills pot transactions in this chunk"
+                    )
+                    
+                    all_transactions.extend(chunk_transactions)
+                    
+                    # Move to next chunk
+                    current_start = current_end
+                    
+                except Exception as e:
+                    logger.error(
+                        f"[SYNC] Error pulling bills pot transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
+                    )
+                    # Continue with next chunk instead of failing completely
+                    current_start = current_end
+                    continue
+            
+            transactions = all_transactions
+            logger.info(f"[SYNC] First-time bills pot sync completed, total transactions: {len(transactions)}")
         else:
             logger.info(
                 f"[SYNC] Found existing bills pot transactions, latest transaction ID: {latest_bills_txn.id}"
