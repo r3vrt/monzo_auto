@@ -134,10 +134,9 @@ class MonzoClient:
         account_id: str,
         since: Optional[str] = None,
         before: Optional[str] = None,
-        limit: int = 100,
     ) -> List[Any]:
         """
-        Returns a list of transactions for the given account (Transaction objects).
+        Returns a list of all transactions for the given account (Transaction objects).
         Automatically refreshes token if needed.
         """
         return self._with_token_refresh(
@@ -145,7 +144,6 @@ class MonzoClient:
             account_id,
             since=since,
             before=before,
-            limit=limit,
         )
 
     def get_balance(self, account_id: str) -> Any:

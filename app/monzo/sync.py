@@ -150,41 +150,55 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
     # Fetch pots
     try:
         pots = monzo.get_pots(account_id)
+        logger.info(f"[SYNC] Found {len(pots)} pots for account {account_id}")
+        
         for pot in pots:
             if getattr(pot, "deleted", False):
+                logger.debug(f"[SYNC] Skipping deleted pot: {pot.id}")
                 continue  # Skip deleted pots
-            db_pot = db.query(Pot).filter_by(id=pot.id, user_id=user_id_str).first()
-            if db_pot:
-                db_pot.name = pot.name
-                db_pot.style = getattr(pot, "style", None)
-                db_pot.balance = pot.balance
-                db_pot.currency = pot.currency
-                db_pot.created = pot.created
-                db_pot.updated = pot.updated
-                db_pot.deleted = 0
-                db_pot.pot_current_id = getattr(pot, "pot_current_id", None)
-                # Sync goal_amount from API to goal field in database
-                goal_amount = getattr(pot, "goal_amount", None)
-                if goal_amount is not None:
-                    db_pot.goal = goal_amount
-            else:
-                # Get goal_amount from API
-                goal_amount = getattr(pot, "goal_amount", None)
-                db_pot = Pot(
-                    id=pot.id,
-                    account_id=account_id,
-                    user_id=user_id_str,
-                    name=pot.name,
-                    style=getattr(pot, "style", None),
-                    balance=pot.balance,
-                    currency=pot.currency,
-                    created=pot.created,
-                    updated=pot.updated,
-                    deleted=0,
-                    pot_current_id=getattr(pot, "pot_current_id", None),
-                    goal=goal_amount if goal_amount is not None else 0,
-                )
-                db.add(db_pot)
+                
+            try:
+                db_pot = db.query(Pot).filter_by(id=pot.id, user_id=user_id_str).first()
+                if db_pot:
+                    # Update existing pot
+                    logger.debug(f"[SYNC] Updating existing pot: {pot.id} - {pot.name}")
+                    db_pot.name = pot.name
+                    db_pot.style = getattr(pot, "style", None)
+                    db_pot.balance = pot.balance
+                    db_pot.currency = pot.currency
+                    db_pot.created = pot.created
+                    db_pot.updated = pot.updated
+                    db_pot.deleted = 0
+                    db_pot.pot_current_id = getattr(pot, "pot_current_id", None)
+                    # Sync goal_amount from API to goal field in database
+                    goal_amount = getattr(pot, "goal_amount", None)
+                    if goal_amount is not None:
+                        db_pot.goal = goal_amount
+                else:
+                    # Create new pot
+                    logger.debug(f"[SYNC] Creating new pot: {pot.id} - {pot.name}")
+                    goal_amount = getattr(pot, "goal_amount", None)
+                    db_pot = Pot(
+                        id=pot.id,
+                        account_id=account_id,
+                        user_id=user_id_str,
+                        name=pot.name,
+                        style=getattr(pot, "style", None),
+                        balance=pot.balance,
+                        currency=pot.currency,
+                        created=pot.created,
+                        updated=pot.updated,
+                        deleted=0,
+                        pot_current_id=getattr(pot, "pot_current_id", None),
+                        goal=goal_amount if goal_amount is not None else 0,
+                    )
+                    db.add(db_pot)
+                    
+            except Exception as pot_error:
+                logger.error(f"[SYNC] Error processing pot {pot.id}: {pot_error}")
+                # Continue with other pots instead of failing completely
+                continue
+                
     except Exception as e:
         logger.error(f"[SYNC] Error fetching pots: {e}")
         try:
@@ -222,55 +236,16 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             logger.info(
                 f"[SYNC] Pulling transactions for account {account_id} from {start_date.isoformat()} to {now.isoformat()}"
             )
-            # Manual pagination to avoid the library's buggy _get_all_transactions method
-            all_transactions = []
-            current_since = start_date.isoformat()
-            page_count = 0
-            max_pages = 50  # Safety limit to prevent infinite loops
-            
-            while page_count < max_pages:
-                page_count += 1
-                logger.info(f"[SYNC] Fetching page {page_count} since {current_since}")
-                
-                # Get one page of transactions
-                page_transactions = safe_api_call(
-                    lambda: monzo.get_transactions(
-                        account_id, 
-                        since=current_since,
-                        limit=100
-                    ),
-                    timeout_seconds=30
-                )
-                
-                # If no transactions returned, we're done
-                if not page_transactions:
-                    logger.info(f"[SYNC] No more transactions found on page {page_count}")
-                    break
-                
-                # Check if we're getting the same transactions (potential loop)
-                if all_transactions and len(page_transactions) > 0:
-                    first_page_id = page_transactions[0].id
-                    last_all_id = all_transactions[-1].id
-                    if first_page_id == last_all_id:
-                        logger.warning(f"[SYNC] Potential loop detected - first transaction ID matches last from previous page: {first_page_id}")
-                        break
-                
-                # Add transactions to our collection
-                all_transactions.extend(page_transactions)
-                logger.info(f"[SYNC] Page {page_count}: {len(page_transactions)} transactions, total: {len(all_transactions)}")
-                
-                # If we got less than 100 transactions, we've reached the end
-                if len(page_transactions) < 100:
-                    logger.info(f"[SYNC] Reached end of data (got {len(page_transactions)} transactions)")
-                    break
-                
-                # Use the last transaction's timestamp for the next page
-                last_txn = page_transactions[-1]
-                current_since = (last_txn.created + timedelta(seconds=1)).isoformat()
-            
-            transactions = all_transactions
+            # Use the fixed library method for pagination
+            transactions = safe_api_call(
+                lambda: monzo.get_transactions(
+                    account_id, 
+                    since=start_date.isoformat()
+                ),
+                timeout_seconds=120
+            )
             logger.info(
-                f"[SYNC] Completed pagination: {len(transactions)} total transactions across {page_count} pages"
+                f"[SYNC] Pulled {len(transactions)} transactions using fixed library pagination"
             )
             
             # If no transactions returned, we're done
@@ -441,9 +416,9 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             
             transactions = safe_api_call(
                 lambda: monzo.get_transactions(
-                    account_id, since=since_timestamp, limit=100
+                    account_id, since=since_timestamp
                 ),
-                timeout_seconds=15
+                timeout_seconds=30
             )
             
             # Add response diagnostics
@@ -717,7 +692,7 @@ def sync_bills_pot_transactions(
                         f"[SYNC] Pulling bills pot transactions from {current_start.isoformat()} to {current_end.isoformat()}"
                     )
                     chunk_transactions = safe_api_call(
-                        lambda: monzo.client._get_all_transactions(
+                        lambda: monzo.get_transactions(
                             account_id=pot_account_id, 
                             since=current_start.isoformat(), 
                             before=current_end.isoformat()
@@ -759,7 +734,7 @@ def sync_bills_pot_transactions(
             )
             
             all_transactions = safe_api_call(
-                lambda: monzo.client._get_all_transactions(
+                lambda: monzo.get_transactions(
                     account_id=pot_account_id, since=latest_txn_id
                 ),
                 timeout_seconds=15
