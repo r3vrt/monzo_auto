@@ -214,127 +214,112 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         )
 
     if first_time:
-        # For first-time sync, use 10-day chunks to avoid timeouts
-        # Start from 90 days ago and work backwards in 10-day chunks
-        start_date = now - timedelta(days=90)
-        chunk_size = 10  # days per chunk
+        # For first-time sync, pull all 89 days in one go
+        # Start from 89 days ago and pull everything up to now
+        start_date = now - timedelta(days=89)
         
-        current_start = start_date
-        while current_start < now:
-            current_end = min(current_start + timedelta(days=chunk_size), now)
-            
-            try:
-                logger.info(
-                    f"[SYNC] Pulling transactions for account {account_id} from {current_start.isoformat()} to {current_end.isoformat()}"
-                )
-                transactions = safe_api_call(
-                    lambda: monzo.client._get_all_transactions(
-                        account_id, 
-                        since=current_start.isoformat(), 
-                        before=current_end.isoformat()
-                    ),
-                    timeout_seconds=60
-                )
-                logger.info(
-                    f"[SYNC] Pulled {len(transactions)} transactions for account {account_id} in this chunk"
-                )
+        try:
+            logger.info(
+                f"[SYNC] Pulling transactions for account {account_id} from {start_date.isoformat()} to {now.isoformat()}"
+            )
+            transactions = safe_api_call(
+                lambda: monzo.client._get_all_transactions(
+                    account_id, 
+                    since=start_date.isoformat()
+                ),
+                timeout_seconds=120  # Increased timeout for larger data pull
+            )
+            logger.info(
+                f"[SYNC] Pulled {len(transactions)} transactions for account {account_id}"
+            )
                 
-                if transactions:
-                    logger.info(
-                        f"[SYNC] First txn: {transactions[0].id} {transactions[0].created}, Last txn: {transactions[-1].id} {transactions[-1].created}"
-                    )
+            if transactions:
+                logger.info(
+                    f"[SYNC] First txn: {transactions[0].id} {transactions[0].created}, Last txn: {transactions[-1].id} {transactions[-1].created}"
+                )
 
-                    # Check how many of these transactions already exist in the database
-                    existing_count = 0
-                    new_transactions = []
-                    for txn in transactions:
-                        if (
-                            db.query(Transaction)
-                            .filter_by(id=txn.id, user_id=user_id_str)
-                            .first()
-                        ):
-                            existing_count += 1
-                        else:
-                            new_transactions.append(txn)
-
-                    logger.info(
-                        f"[SYNC] {existing_count} out of {len(transactions)} transactions already exist in database"
-                    )
-
-                    # Only process new transactions
-                    if new_transactions:
-                        for txn in new_transactions:
-                            # Extract pot_account_id from metadata if available
-                            pot_current_id = None
-                            if hasattr(txn, "metadata") and txn.metadata:
-                                try:
-                                    if isinstance(txn.metadata, str):
-                                        metadata = ast.literal_eval(txn.metadata)
-                                    else:
-                                        metadata = txn.metadata
-                                    pot_current_id = metadata.get("pot_account_id")
-                                except (ValueError, SyntaxError, AttributeError):
-                                    pass
-
-                            # Create new transaction
-                            db_txn = Transaction(
-                                id=txn.id,
-                                account_id=account_id,
-                                user_id=user_id_str,
-                                created=txn.created,
-                                amount=txn.amount,
-                                currency=txn.currency,
-                                description=txn.description,
-                                category=getattr(txn, "category", None),
-                                merchant=getattr(txn, "merchant", None),
-                                notes=getattr(txn, "notes", None),
-                                is_load=int(getattr(txn, "is_load", False)),
-                                settled=getattr(txn, "settled", None),
-                                txn_metadata=str(getattr(txn, "metadata", "")),
-                                pot_current_id=pot_current_id,
-                            )
-                            db.add(db_txn)
-                            logger.debug(f"[SYNC] Added new transaction: {txn.id}")
-
-                        # Commit only new transactions
-                        db.commit()
-                        logger.info(
-                            f"[SYNC] Committed {len(new_transactions)} new transactions to database"
-                        )
+                # Check how many of these transactions already exist in the database
+                existing_count = 0
+                new_transactions = []
+                for txn in transactions:
+                    if (
+                        db.query(Transaction)
+                        .filter_by(id=txn.id, user_id=user_id_str)
+                        .first()
+                    ):
+                        existing_count += 1
                     else:
-                        logger.info("[SYNC] No new transactions to commit in this chunk")
-                
-                # Move to next chunk
-                current_start = current_end
-                
-            except TimeoutException as e:
-                logger.error(
-                    f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
-                )
-                # Rollback transaction and continue with next chunk
-                try:
-                    db.rollback()
-                    logger.info("[SYNC] Database transaction rolled back after timeout")
-                except Exception as rollback_error:
-                    logger.error(f"[SYNC] Error during rollback: {rollback_error}")
-                # Continue with next chunk instead of failing completely
-                current_start = current_end
-                continue
-            except Exception as e:
-                logger.error(
-                    f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
-                )
-                # Rollback transaction and continue with next chunk
-                try:
-                    db.rollback()
-                    logger.info("[SYNC] Database transaction rolled back after error")
-                except Exception as rollback_error:
-                    logger.error(f"[SYNC] Error during rollback: {rollback_error}")
-                # Continue with next chunk instead of failing completely
-                current_start = current_end
-                continue
+                        new_transactions.append(txn)
 
-        logger.info(f"First-time sync completed for account {account_id} using 10-day chunks.")
+                logger.info(
+                    f"[SYNC] {existing_count} out of {len(transactions)} transactions already exist in database"
+                )
+
+                # Only process new transactions
+                if new_transactions:
+                    for txn in new_transactions:
+                        # Extract pot_account_id from metadata if available
+                        pot_current_id = None
+                        if hasattr(txn, "metadata") and txn.metadata:
+                            try:
+                                if isinstance(txn.metadata, str):
+                                    metadata = ast.literal_eval(txn.metadata)
+                                else:
+                                    metadata = txn.metadata
+                                pot_current_id = metadata.get("pot_account_id")
+                            except (ValueError, SyntaxError, AttributeError):
+                                pass
+
+                        # Create new transaction
+                        db_txn = Transaction(
+                            id=txn.id,
+                            account_id=account_id,
+                            user_id=user_id_str,
+                            created=txn.created,
+                            amount=txn.amount,
+                            currency=txn.currency,
+                            description=txn.description,
+                            category=getattr(txn, "category", None),
+                            merchant=getattr(txn, "merchant", None),
+                            notes=getattr(txn, "notes", None),
+                            is_load=int(getattr(txn, "is_load", False)),
+                            settled=getattr(txn, "settled", None),
+                            txn_metadata=str(getattr(txn, "metadata", "")),
+                            pot_current_id=pot_current_id,
+                        )
+                        db.add(db_txn)
+                        logger.debug(f"[SYNC] Added new transaction: {txn.id}")
+
+                    # Commit only new transactions
+                    db.commit()
+                    logger.info(
+                        f"[SYNC] Committed {len(new_transactions)} new transactions to database"
+                    )
+                else:
+                    logger.info("[SYNC] No new transactions to commit")
+                
+        except TimeoutException as e:
+            logger.error(
+                f"[SYNC] Error pulling transactions for account {account_id}: {e}"
+            )
+            # Rollback transaction
+            try:
+                db.rollback()
+                logger.info("[SYNC] Database transaction rolled back after timeout")
+            except Exception as rollback_error:
+                logger.error(f"[SYNC] Error during rollback: {rollback_error}")
+        except Exception as e:
+            logger.error(
+                f"[SYNC] Error pulling transactions for account {account_id}: {e}"
+            )
+            # Rollback transaction
+            try:
+                db.rollback()
+                logger.info("[SYNC] Database transaction rolled back after error")
+            except Exception as rollback_error:
+                logger.error(f"[SYNC] Error during rollback: {rollback_error}")
+
+        logger.info(f"First-time sync completed for account {account_id}.")
 
         # Trigger automation after successful first-time sync
         try:
@@ -444,6 +429,14 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                     timestamp_counts = Counter(timestamps)
                     duplicates = {ts: count for ts, count in timestamp_counts.items() if count > 1}
                     logger.warning(f"[SYNC-DEBUG]   Duplicate timestamps: {duplicates}")
+                
+                # Log all transaction IDs and dates to identify the problematic ones
+                logger.info(f"[SYNC-DEBUG]   All transaction details:")
+                for i, txn in enumerate(transactions[:10]):  # Log first 10 transactions
+                    logger.info(f"[SYNC-DEBUG]     {i+1}. ID: {txn.id}, Date: {txn.created}, Amount: {txn.amount}, Desc: {txn.description[:50]}")
+                
+                if len(transactions) > 10:
+                    logger.info(f"[SYNC-DEBUG]     ... and {len(transactions) - 10} more transactions")
             
             logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
             
@@ -467,6 +460,18 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 since_datetime = datetime.fromisoformat(since_timestamp.replace('Z', '+00:00'))
                 if first_txn_date <= since_datetime:
                     logger.warning(f"[SYNC] Potential loop detected - first transaction date {first_txn_date} is not after since timestamp {since_datetime}")
+                    logger.info(f"[SYNC] Skipping sync to prevent loop")
+                    return
+                
+                # Check if any of these transactions already exist in the database
+                existing_count = 0
+                for txn in transactions:
+                    existing_txn = db.query(Transaction).filter_by(id=txn.id, user_id=user_id_str).first()
+                    if existing_txn:
+                        existing_count += 1
+                
+                if existing_count > 0:
+                    logger.warning(f"[SYNC] Potential loop detected - {existing_count} out of {len(transactions)} transactions already exist in database")
                     logger.info(f"[SYNC] Skipping sync to prevent loop")
                     return
             
