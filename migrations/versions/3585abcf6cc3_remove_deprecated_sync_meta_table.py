@@ -20,8 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Drop the deprecated sync_meta table
-    op.drop_table('sync_meta')
+    # Drop the deprecated sync_meta table if it exists
+    op.execute('DROP TABLE IF EXISTS sync_meta')
 
 
 def downgrade() -> None:
