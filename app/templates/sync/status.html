@@ -83,7 +83,7 @@
                         {% for txn in acc.transactions[:3] %}
                         <div class="list-group-item px-0 py-1 border-0">
                             <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
+                                <div class="flex-grow-1" style="max-width: calc(100% - 120px); min-width: 0;">
                                     <div class="small text-truncate">{{ txn.description }}</div>
                                     <div class="text-muted small">{{ txn.created.strftime('%Y-%m-%d') if txn.created else '' }}</div>
                                 </div>
@@ -114,7 +114,7 @@
                         {% for pot in acc.pots[:3] %}
                         <div class="list-group-item px-0 py-1 border-0">
                             <div class="d-flex justify-content-between align-items-center">
-                                <div class="flex-grow-1">
+                                <div class="flex-grow-1" style="max-width: calc(100% - 120px); min-width: 0;">
                                     <div class="small">{{ pot.name }}</div>
                                 </div>
                                 <div class="ms-2" style="min-width: 100px; width: 100px; text-align: right; flex-shrink: 0;">
