@@ -1,7 +1,7 @@
 """Add execution_metadata field to automation_rules table
 
 Revision ID: add_execution_metadata_to_automation_rules
-Revises: 3736dace38ed
+Revises: 3585abcf6cc3
 Create Date: 2025-07-24 20:45:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'exec_metadata_automation'
-down_revision = '3736dace38ed'
+down_revision = '3585abcf6cc3'
 branch_labels = None
 depends_on = None
 

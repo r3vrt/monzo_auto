@@ -1,7 +1,7 @@
 """add_bills_pot_transactions_table
 
 Revision ID: c979368b4acc
-Revises: c31bebf1b6e8
+Revises: 7d15f4015bfd
 Create Date: 2025-07-22 23:49:30.795326
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'c979368b4acc'
-down_revision: Union[str, Sequence[str], None] = 'c31bebf1b6e8'
+down_revision: Union[str, Sequence[str], None] = '7d15f4015bfd'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
