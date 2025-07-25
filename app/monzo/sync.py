@@ -222,16 +222,62 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             logger.info(
                 f"[SYNC] Pulling transactions for account {account_id} from {start_date.isoformat()} to {now.isoformat()}"
             )
-            transactions = safe_api_call(
-                lambda: monzo.client._get_all_transactions(
-                    account_id, 
-                    since=start_date.isoformat()
-                ),
-                timeout_seconds=120  # Increased timeout for larger data pull
-            )
+            # Manual pagination to avoid the library's buggy _get_all_transactions method
+            all_transactions = []
+            current_since = start_date.isoformat()
+            page_count = 0
+            max_pages = 50  # Safety limit to prevent infinite loops
+            
+            while page_count < max_pages:
+                page_count += 1
+                logger.info(f"[SYNC] Fetching page {page_count} since {current_since}")
+                
+                # Get one page of transactions
+                page_transactions = safe_api_call(
+                    lambda: monzo.get_transactions(
+                        account_id, 
+                        since=current_since,
+                        limit=100,
+                        auto_paginate=False
+                    ),
+                    timeout_seconds=30
+                )
+                
+                # If no transactions returned, we're done
+                if not page_transactions:
+                    logger.info(f"[SYNC] No more transactions found on page {page_count}")
+                    break
+                
+                # Check if we're getting the same transactions (potential loop)
+                if all_transactions and len(page_transactions) > 0:
+                    first_page_id = page_transactions[0].id
+                    last_all_id = all_transactions[-1].id
+                    if first_page_id == last_all_id:
+                        logger.warning(f"[SYNC] Potential loop detected - first transaction ID matches last from previous page: {first_page_id}")
+                        break
+                
+                # Add transactions to our collection
+                all_transactions.extend(page_transactions)
+                logger.info(f"[SYNC] Page {page_count}: {len(page_transactions)} transactions, total: {len(all_transactions)}")
+                
+                # If we got less than 100 transactions, we've reached the end
+                if len(page_transactions) < 100:
+                    logger.info(f"[SYNC] Reached end of data (got {len(page_transactions)} transactions)")
+                    break
+                
+                # Use the last transaction's timestamp for the next page
+                last_txn = page_transactions[-1]
+                current_since = (last_txn.created + timedelta(seconds=1)).isoformat()
+            
+            transactions = all_transactions
             logger.info(
-                f"[SYNC] Pulled {len(transactions)} transactions for account {account_id}"
+                f"[SYNC] Completed pagination: {len(transactions)} total transactions across {page_count} pages"
             )
+            
+            # If no transactions returned, we're done
+            if not transactions:
+                logger.info(f"[SYNC] No transactions found for account {account_id}")
+                return
                 
             if transactions:
                 logger.info(
