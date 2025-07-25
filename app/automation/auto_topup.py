@@ -248,9 +248,13 @@ class AutoTopup:
                 else:
                     logger.error(f"❌ Could not get balance for target {rule.target_pot_id}")
             
-            # Trigger if either time OR balance condition is met
-            should_trigger = time_trigger or balance_trigger
-            logger.info(f"🔍 Final trigger decision for rule '{rule.name}': time_trigger={time_trigger}, balance_trigger={balance_trigger}, should_trigger={should_trigger}")
+            # Trigger if time condition is met AND balance condition is met (if target_balance is set)
+            if rule.target_balance is not None:
+                should_trigger = time_trigger and balance_trigger
+                logger.info(f"🔍 Final trigger decision for rule '{rule.name}': time_trigger={time_trigger} AND balance_trigger={balance_trigger}, should_trigger={should_trigger}")
+            else:
+                should_trigger = time_trigger
+                logger.info(f"🔍 Final trigger decision for rule '{rule.name}': time_trigger={time_trigger}, should_trigger={should_trigger}")
             return should_trigger
 
         elif rule.trigger_type == "balance_threshold":
