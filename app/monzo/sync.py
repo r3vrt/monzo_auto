@@ -14,7 +14,8 @@ Key Features:
 import ast
 import json
 import logging
-import signal
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -25,16 +26,14 @@ from app.models import Account, BillsPotTransaction, Pot, Transaction, User
 
 logger = logging.getLogger(__name__)
 
-# Timeout handling for API calls
+# Timeout handling for API calls using threading (works in background threads)
 class TimeoutException(Exception):
     pass
-
-def timeout_handler(signum, frame):
-    raise TimeoutException("API call timed out")
 
 def safe_api_call(api_func, timeout_seconds=30, *args, **kwargs):
     """
     Execute an API call with a timeout to prevent hangs.
+    Uses threading instead of signals to work in background threads.
     
     Args:
         api_func: The API function to call
@@ -47,22 +46,28 @@ def safe_api_call(api_func, timeout_seconds=30, *args, **kwargs):
     Raises:
         TimeoutException: If the call times out
     """
-    # Set up the timeout
-    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout_seconds)
+    result = [None]
+    exception = [None]
     
-    try:
-        result = api_func(*args, **kwargs)
-        signal.alarm(0)  # Cancel the alarm
-        return result
-    except TimeoutException:
+    def target():
+        try:
+            result[0] = api_func(*args, **kwargs)
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout_seconds)
+    
+    if thread.is_alive():
         logger.error(f"API call timed out after {timeout_seconds} seconds")
-        raise
-    except Exception as e:
-        signal.alarm(0)  # Cancel the alarm
-        raise
-    finally:
-        signal.signal(signal.SIGALRM, old_handler)
+        raise TimeoutException(f"API call timed out after {timeout_seconds} seconds")
+    
+    if exception[0]:
+        raise exception[0]
+    
+    return result[0]
 
 
 def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
