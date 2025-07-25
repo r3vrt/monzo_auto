@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'complete_automation_rules_schema'
-down_revision = 'add_missing_automation_rules_columns'
+down_revision = 'add_automation_rules_cols'
 branch_labels = None
 depends_on = None
 

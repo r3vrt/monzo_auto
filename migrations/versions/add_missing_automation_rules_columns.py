@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'add_missing_automation_rules_columns'
+revision = 'add_automation_rules_cols'
 down_revision = 'fix_execution_metadata_column'
 branch_labels = None
 depends_on = None
