@@ -32,14 +32,22 @@ class MonzoClient:
         self.redirect_uri = redirect_uri or ""
         self.tokens = tokens or {}
         self.timeout = timeout
-        self.client = MonzoApyClient(
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            redirect_uri=self.redirect_uri,
-            access_token=self.tokens.get("access_token"),
-            refresh_token=self.tokens.get("refresh_token"),
-            timeout=self.timeout,
-        )
+        
+        # Create the underlying client with only the parameters it accepts
+        client_kwargs = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "redirect_uri": self.redirect_uri,
+            "access_token": self.tokens.get("access_token"),
+            "refresh_token": self.tokens.get("refresh_token"),
+        }
+        
+        # Only add timeout if the MonzoApyClient accepts it
+        try:
+            self.client = MonzoApyClient(**client_kwargs, timeout=self.timeout)
+        except TypeError:
+            # If timeout is not accepted, create without it
+            self.client = MonzoApyClient(**client_kwargs)
 
     def get_authorization_url(self, state: Optional[str] = None) -> str:
         """
