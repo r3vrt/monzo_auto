@@ -14,7 +14,10 @@ from app.ui import ui_bp
 @ui_bp.route("/logs")
 def view_logs():
     """Display application logs for debugging."""
-    log_path = os.path.join(os.path.dirname(__file__), "../../monzo_app.log")
+    # Get the project root directory (where run.py is located)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    log_path = os.path.join(project_root, "monzo_app.log")
+    
     try:
         with open(log_path, "r") as f:
             lines = f.readlines()[-200:]
