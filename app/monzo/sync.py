@@ -314,16 +314,17 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         
         # Add a reasonable time limit to prevent pulling too much historical data
         # Use 3 days as a safety limit for incremental syncs to prevent hangs
-        time_limit = now - timedelta(days=3)
+        # The limit should be relative to the latest transaction, not today
+        latest_txn_date = latest_txn.created
+        time_limit = latest_txn_date - timedelta(days=3)
         time_limit_iso = time_limit.isoformat()
         
         try:
             logger.info(
-                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit_iso})"
+                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day limit from latest txn: {time_limit_iso})"
             )
             
             # Add debug info about the latest transaction
-            latest_txn_date = latest_txn.created
             days_since_latest = (now - latest_txn_date).days
             logger.info(
                 f"[SYNC] Latest transaction date: {latest_txn_date}, days since: {days_since_latest}"
@@ -340,7 +341,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Raw API response: {len(transactions)} transactions received"
             )
             
-            # Filter transactions to only include those within the time limit
+            # Filter transactions to only include those within 3 days of the latest transaction
             filtered_transactions = [
                 txn for txn in transactions 
                 if txn.created >= time_limit
