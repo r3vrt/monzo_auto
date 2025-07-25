@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}Logging Configuration{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Logging Configuration</h1>
+            <p class="text-gray-600">Configure logging levels for different components of the application.</p>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        <!-- Configuration Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Global Configuration</h2>
+            
+            <form id="logging-config-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Root Logger -->
+                    <div class="space-y-2">
+                        <label for="root_level" class="block text-sm font-medium text-gray-700">
+                            Root Logger
+                        </label>
+                        <select id="root_level" name="root_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- App Logger -->
+                    <div class="space-y-2">
+                        <label for="app_level" class="block text-sm font-medium text-gray-700">
+                            Application
+                        </label>
+                        <select id="app_level" name="app_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Monzo Client -->
+                    <div class="space-y-2">
+                        <label for="monzo_client_level" class="block text-sm font-medium text-gray-700">
+                            Monzo Client
+                        </label>
+                        <select id="monzo_client_level" name="monzo_client_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Monzo Sync -->
+                    <div class="space-y-2">
+                        <label for="monzo_sync_level" class="block text-sm font-medium text-gray-700">
+                            Monzo Sync
+                        </label>
+                        <select id="monzo_sync_level" name="monzo_sync_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Automation -->
+                    <div class="space-y-2">
+                        <label for="automation_level" class="block text-sm font-medium text-gray-700">
+                            Automation
+                        </label>
+                        <select id="automation_level" name="automation_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Scheduler -->
+                    <div class="space-y-2">
+                        <label for="scheduler_level" class="block text-sm font-medium text-gray-700">
+                            Scheduler
+                        </label>
+                        <select id="scheduler_level" name="scheduler_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- HTTP Libraries -->
+                    <div class="space-y-2">
+                        <label for="urllib3_level" class="block text-sm font-medium text-gray-700">
+                            HTTP (urllib3)
+                        </label>
+                        <select id="urllib3_level" name="urllib3_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="requests_level" class="block text-sm font-medium text-gray-700">
+                            HTTP (requests)
+                        </label>
+                        <select id="requests_level" name="requests_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Flask -->
+                    <div class="space-y-2">
+                        <label for="werkzeug_level" class="block text-sm font-medium text-gray-700">
+                            Flask (Werkzeug)
+                        </label>
+                        <select id="werkzeug_level" name="werkzeug_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+
+                    <!-- Database -->
+                    <div class="space-y-2">
+                        <label for="sqlalchemy_level" class="block text-sm font-medium text-gray-700">
+                            Database (SQLAlchemy)
+                        </label>
+                        <select id="sqlalchemy_level" name="sqlalchemy_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                            <option value="CRITICAL">CRITICAL</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex space-x-4">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Update Configuration
+                    </button>
+                    <button type="button" id="reset-config" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        Reset to Defaults
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Current Logger Status -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Current Logger Status</h2>
+            <div id="logger-status" class="space-y-3">
+                <div class="text-gray-500">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load current configuration
+    loadLoggingConfig();
+    
+    // Form submission
+    document.getElementById('logging-config-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updateLoggingConfig();
+    });
+    
+    // Reset button
+    document.getElementById('reset-config').addEventListener('click', function() {
+        resetLoggingConfig();
+    });
+});
+
+function loadLoggingConfig() {
+    fetch('/api/logging/config')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Populate form fields
+                Object.keys(data.config).forEach(key => {
+                    const select = document.getElementById(key);
+                    if (select) {
+                        select.value = data.config[key];
+                    }
+                });
+                
+                // Update logger status
+                updateLoggerStatus(data.loggers);
+            } else {
+                showAlert('Error loading configuration: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showAlert('Error loading configuration: ' + error.message, 'error');
+        });
+}
+
+function updateLoggingConfig() {
+    const formData = new FormData(document.getElementById('logging-config-form'));
+    const config = {};
+    
+    for (let [key, value] of formData.entries()) {
+        config[key] = value;
+    }
+    
+    fetch('/api/logging/config', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Configuration updated successfully!', 'success');
+            loadLoggingConfig(); // Reload to show updated status
+        } else {
+            showAlert('Error updating configuration: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('Error updating configuration: ' + error.message, 'error');
+    });
+}
+
+function resetLoggingConfig() {
+    if (!confirm('Are you sure you want to reset all logging levels to defaults?')) {
+        return;
+    }
+    
+    fetch('/api/logging/reset', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Configuration reset to defaults!', 'success');
+            loadLoggingConfig(); // Reload to show updated status
+        } else {
+            showAlert('Error resetting configuration: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('Error resetting configuration: ' + error.message, 'error');
+    });
+}
+
+function updateLoggerStatus(loggers) {
+    const container = document.getElementById('logger-status');
+    container.innerHTML = '';
+    
+    Object.keys(loggers).forEach(loggerName => {
+        const level = loggers[loggerName];
+        const levelClass = getLevelClass(level);
+        
+        const loggerDiv = document.createElement('div');
+        loggerDiv.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-md';
+        loggerDiv.innerHTML = `
+            <span class="font-medium text-gray-700">${loggerName}</span>
+            <span class="px-2 py-1 text-xs font-semibold rounded-full ${levelClass}">${level}</span>
+        `;
+        
+        container.appendChild(loggerDiv);
+    });
+}
+
+function getLevelClass(level) {
+    switch (level) {
+        case 'DEBUG':
+            return 'bg-blue-100 text-blue-800';
+        case 'INFO':
+            return 'bg-green-100 text-green-800';
+        case 'WARNING':
+            return 'bg-yellow-100 text-yellow-800';
+        case 'ERROR':
+            return 'bg-red-100 text-red-800';
+        case 'CRITICAL':
+            return 'bg-purple-100 text-purple-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alert-container');
+    const alertDiv = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700';
+    
+    alertDiv.className = `p-4 mb-4 border rounded-md ${bgColor}`;
+    alertDiv.innerHTML = `
+        <div class="flex justify-between items-center">
+            <span>${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="text-lg font-bold">&times;</button>
+        </div>
+    `;
+    
+    container.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentElement) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %} 

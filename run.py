@@ -9,26 +9,10 @@ from app.services.auth_service import get_authenticated_monzo_client
 from app.automation.integration import AutomationIntegration
 from datetime import datetime
 import os
+from app.logging_config import get_logging_manager
 
-# Enhanced logging configuration for debugging hangs
-logging.basicConfig(
-    level=logging.DEBUG,  # Set to DEBUG for maximum verbosity
-    format='%(asctime)s %(name)s %(levelname)s %(message)s',
-    handlers=[
-        logging.FileHandler('monzo_app.log'),
-        logging.StreamHandler()
-    ]
-)
-
-# Set specific loggers to DEBUG level for detailed debugging
-logging.getLogger('app.monzo.sync').setLevel(logging.DEBUG)
-logging.getLogger('app.automation').setLevel(logging.DEBUG)
-logging.getLogger('app.monzo.client').setLevel(logging.DEBUG)
-logging.getLogger('urllib3').setLevel(logging.DEBUG)  # HTTP request logging
-logging.getLogger('requests').setLevel(logging.DEBUG)  # HTTP request logging
-
-# Flask logging
-logging.getLogger('werkzeug').setLevel(logging.DEBUG)  # Flask development server logs
+# Configure logging using the logging manager
+logging_manager = get_logging_manager()
 
 # Auto-create tables if they do not exist
 Base.metadata.create_all(engine)

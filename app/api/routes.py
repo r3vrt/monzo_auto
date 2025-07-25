@@ -1212,7 +1212,7 @@ def clear_queue():
         return jsonify({'error': str(e)}), 500
 
 
-@api_bp.route('/automation/sweep/executions', methods=['GET'])
+@api_bp.route('/automation/sweep/executions', methods=["GET"])
 def get_sweep_executions():
     """Get execution count and history for sweep rules."""
     try:
@@ -1241,3 +1241,123 @@ def get_sweep_executions():
     except Exception as e:
         logging.error(f"[SWEEP] Error getting sweep executions: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# Logging Management API Endpoints
+# ============================================================================
+
+
+@api_bp.route("/logging/config", methods=["GET"])
+def get_logging_config():
+    """
+    Get current logging configuration.
+    """
+    try:
+        from app.logging_config import get_logging_manager
+        
+        logging_manager = get_logging_manager()
+        config = logging_manager.get_current_config()
+        loggers = logging_manager.get_available_loggers()
+        
+        return jsonify({
+            "success": True,
+            "config": config,
+            "loggers": loggers,
+            "available_levels": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting logging config: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/logging/config", methods=["PUT"])
+def update_logging_config():
+    """
+    Update logging configuration.
+    Expects JSON with logging level settings.
+    """
+    try:
+        from app.logging_config import get_logging_manager
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Missing configuration data"}), 400
+        
+        logging_manager = get_logging_manager()
+        updated_config = logging_manager.update_config(data)
+        
+        return jsonify({
+            "success": True,
+            "message": "Logging configuration updated successfully",
+            "config": updated_config
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating logging config: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/logging/logger/<logger_name>/level/<level>", methods=["PUT"])
+def set_logger_level(logger_name: str, level: str):
+    """
+    Set the logging level for a specific logger.
+    """
+    try:
+        from app.logging_config import get_logging_manager
+        
+        logging_manager = get_logging_manager()
+        success = logging_manager.set_logger_level(logger_name, level)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": f"Logger '{logger_name}' level set to '{level}'",
+                "logger": logger_name,
+                "level": level
+            })
+        else:
+            return jsonify({
+                "error": f"Invalid level '{level}' or logger '{logger_name}'"
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"Error setting logger level: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/logging/reset", methods=["POST"])
+def reset_logging_config():
+    """
+    Reset logging configuration to default values.
+    """
+    try:
+        from app.logging_config import get_logging_manager
+        
+        logging_manager = get_logging_manager()
+        # Reset to default configuration
+        default_config = {
+            "root_level": "INFO",
+            "app_level": "INFO",
+            "monzo_client_level": "INFO",
+            "monzo_sync_level": "INFO",
+            "automation_level": "INFO",
+            "scheduler_level": "INFO",
+            "urllib3_level": "WARNING",
+            "requests_level": "WARNING",
+            "werkzeug_level": "INFO",
+            "sqlalchemy_level": "WARNING"
+        }
+        
+        updated_config = logging_manager.update_config(default_config)
+        
+        return jsonify({
+            "success": True,
+            "message": "Logging configuration reset to defaults",
+            "config": updated_config
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resetting logging config: {e}")
+        return jsonify({"error": str(e)}), 500

@@ -25,3 +25,9 @@ def view_logs():
         lines = [f"Error reading log file: {e}"]
 
     return render_template("logs/view.html", log_content="".join(lines))
+
+
+@ui_bp.route("/logs/config")
+def logging_config():
+    """Display logging configuration management page."""
+    return render_template("logs/config.html")

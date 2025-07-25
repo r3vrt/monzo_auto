@@ -364,13 +364,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         )
         
         # Add detailed diagnostics for debugging device-specific issues
-        logger.info(f"[SYNC-DEBUG] Latest transaction details:")
-        logger.info(f"[SYNC-DEBUG]   ID: {latest_txn_id}")
-        logger.info(f"[SYNC-DEBUG]   Created: {latest_txn.created}")
-        logger.info(f"[SYNC-DEBUG]   Amount: {latest_txn.amount}")
-        logger.info(f"[SYNC-DEBUG]   Description: {latest_txn.description}")
-        logger.info(f"[SYNC-DEBUG]   Current time: {now}")
-        logger.info(f"[SYNC-DEBUG]   Time since latest: {(now - latest_txn.created).total_seconds()} seconds")
+        logger.info(f"[SYNC] Incremental sync: latest txn {latest_txn_id} from {latest_txn.created}")
         
 
         
@@ -407,12 +401,8 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             since_timestamp = (latest_txn_date + timedelta(seconds=1)).isoformat()
             logger.info(f"[SYNC] Using timestamp-based sync to avoid loops: since={since_timestamp}")
             
-            # Add API call diagnostics
-            logger.info(f"[SYNC-DEBUG] About to call Monzo API:")
-            logger.info(f"[SYNC-DEBUG]   Account ID: {account_id}")
-            logger.info(f"[SYNC-DEBUG]   Since timestamp: {since_timestamp}")
-            logger.info(f"[SYNC-DEBUG]   Limit: 100")
-            logger.info(f"[SYNC-DEBUG]   Timeout: 15 seconds")
+            # Log API call for troubleshooting
+            logger.info(f"[SYNC] Calling Monzo API: account {account_id}, since {since_timestamp}")
             
             transactions = safe_api_call(
                 lambda: monzo.get_transactions(
@@ -421,42 +411,11 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 timeout_seconds=30
             )
             
-            # Add response diagnostics
-            logger.info(f"[SYNC-DEBUG] API response received:")
-            logger.info(f"[SYNC-DEBUG]   Transactions count: {len(transactions) if transactions else 0}")
+            # Log response summary for troubleshooting
             if transactions:
-                logger.info(f"[SYNC-DEBUG]   First transaction ID: {transactions[0].id}")
-                logger.info(f"[SYNC-DEBUG]   Last transaction ID: {transactions[-1].id}")
-                logger.info(f"[SYNC-DEBUG]   First transaction created: {transactions[0].created}")
-                logger.info(f"[SYNC-DEBUG]   Last transaction created: {transactions[-1].created}")
-                
-                # Add detailed date range analysis
-                logger.info(f"[SYNC-DEBUG] Date range analysis:")
-                logger.info(f"[SYNC-DEBUG]   Since timestamp: {since_timestamp}")
-                logger.info(f"[SYNC-DEBUG]   Latest DB transaction: {latest_txn_date}")
-                logger.info(f"[SYNC-DEBUG]   First API transaction: {transactions[0].created}")
-                logger.info(f"[SYNC-DEBUG]   Last API transaction: {transactions[-1].created}")
-                
-                # Check for duplicate timestamps
-                timestamps = [txn.created for txn in transactions]
-                unique_timestamps = set(timestamps)
-                logger.info(f"[SYNC-DEBUG]   Unique timestamps: {len(unique_timestamps)} out of {len(timestamps)}")
-                
-                if len(unique_timestamps) < len(timestamps):
-                    logger.warning(f"[SYNC-DEBUG]   DUPLICATE TIMESTAMPS DETECTED!")
-                    # Show which timestamps are duplicated
-                    from collections import Counter
-                    timestamp_counts = Counter(timestamps)
-                    duplicates = {ts: count for ts, count in timestamp_counts.items() if count > 1}
-                    logger.warning(f"[SYNC-DEBUG]   Duplicate timestamps: {duplicates}")
-                
-                # Log all transaction IDs and dates to identify the problematic ones
-                logger.info(f"[SYNC-DEBUG]   All transaction details:")
-                for i, txn in enumerate(transactions[:10]):  # Log first 10 transactions
-                    logger.info(f"[SYNC-DEBUG]     {i+1}. ID: {txn.id}, Date: {txn.created}, Amount: {txn.amount}, Desc: {txn.description[:50]}")
-                
-                if len(transactions) > 10:
-                    logger.info(f"[SYNC-DEBUG]     ... and {len(transactions) - 10} more transactions")
+                logger.info(f"[SYNC] API response: {len(transactions)} transactions, first: {transactions[0].id}, last: {transactions[-1].id}")
+            else:
+                logger.info(f"[SYNC] API response: no transactions")
             
             logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
             
