@@ -314,6 +314,12 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             f"[SYNC] Using latest transaction ID for incremental sync: {latest_txn_id}"
         )
         
+        # Add a safety check to prevent infinite loops
+        # If the latest transaction is very old, skip sync to prevent hangs
+        if latest_txn.created < (now - timedelta(days=7)):
+            logger.info(f"[SYNC] Latest transaction is older than 7 days ({latest_txn.created}), skipping sync to prevent hangs")
+            return
+        
         # Add a reasonable time limit to prevent pulling too much historical data
         # Use 3 days as a safety limit for incremental syncs to prevent hangs
         # The limit should be relative to the latest transaction, not today
@@ -332,14 +338,26 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Latest transaction date: {latest_txn_date}, days since: {days_since_latest}"
             )
             
+            # Check if we're within the time limit - if not, skip the API call to prevent hangs
+            if latest_txn_date < time_limit:
+                logger.info(f"[SYNC] Latest transaction {latest_txn_id} is older than 3-day limit ({time_limit_iso}), skipping sync to prevent hangs")
+                return
+            
             logger.debug(f"[SYNC] About to call Monzo API for transactions since {latest_txn_id}")
+            # Use regular get_transactions instead of _get_all_transactions for incremental sync
+            # This is more reliable and less likely to cause hangs
             transactions = safe_api_call(
-                lambda: monzo.client._get_all_transactions(
-                    account_id, since=latest_txn_id
+                lambda: monzo.get_transactions(
+                    account_id, since=latest_txn_id, limit=100
                 ),
                 timeout_seconds=15
             )
             logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
+            
+            # If no transactions returned, log and exit early to prevent hangs
+            if not transactions:
+                logger.info(f"[SYNC] No new transactions found since {latest_txn_id}, sync complete")
+                return
             
             logger.info(
                 f"[SYNC] Raw API response: {len(transactions)} transactions received"
