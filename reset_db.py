@@ -15,8 +15,9 @@ from sqlalchemy import text
 from app.db import engine, get_db_session
 from app.models import (
     User, Account, Pot, Transaction, BillsPotTransaction, 
-    UserPotCategory, AutomationRule
+    UserPotCategory
 )
+from app.automation.rules import AutomationRule
 
 def reset_database():
     """Reset the database by clearing all data while preserving table structure."""
