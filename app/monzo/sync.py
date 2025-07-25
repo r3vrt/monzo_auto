@@ -314,11 +314,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             f"[SYNC] Using latest transaction ID for incremental sync: {latest_txn_id}"
         )
         
-        # Add a safety check to prevent infinite loops
-        # If the latest transaction is very old, skip sync to prevent hangs
-        if latest_txn.created < (now - timedelta(days=7)):
-            logger.info(f"[SYNC] Latest transaction is older than 7 days ({latest_txn.created}), skipping sync to prevent hangs")
-            return
+
         
         # Add a reasonable time limit to prevent pulling too much historical data
         # Use 3 days as a safety limit for incremental syncs to prevent hangs
