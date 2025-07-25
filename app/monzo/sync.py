@@ -260,26 +260,39 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         logger.info(
             f"[SYNC] Using latest transaction ID for incremental sync: {latest_txn_id}"
         )
+        
+        # Add a reasonable time limit to prevent pulling too much historical data
+        # Use 10 days as a safety limit for incremental syncs
+        time_limit = now - timedelta(days=10)
+        time_limit_iso = time_limit.isoformat()
+        
         try:
-            # signal.alarm(10)  # Uncomment for process-level timeout (10s)
             logger.info(
-                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id}"
+                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 10-day time limit: {time_limit_iso})"
             )
             transactions = monzo.client._get_all_transactions(
                 account_id, since=latest_txn_id
             )
+            
+            # Filter transactions to only include those within the time limit
+            filtered_transactions = [
+                txn for txn in transactions 
+                if txn.created >= time_limit
+            ]
+            
             logger.info(
-                f"[SYNC] Pulled {len(transactions)} transactions for account {account_id}"
+                f"[SYNC] Pulled {len(transactions)} transactions, filtered to {len(filtered_transactions)} within 10-day limit"
             )
-            if transactions:
+            
+            if filtered_transactions:
                 logger.info(
-                    f"[SYNC] First txn: {transactions[0].id} {transactions[0].created}, Last txn: {transactions[-1].id} {transactions[-1].created}"
+                    f"[SYNC] First txn: {filtered_transactions[0].id} {filtered_transactions[0].created}, Last txn: {filtered_transactions[-1].id} {filtered_transactions[-1].created}"
                 )
 
                 # Check how many of these transactions already exist in the database
                 existing_count = 0
                 new_transactions = []
-                for txn in transactions:
+                for txn in filtered_transactions:
                     if (
                         db.query(Transaction)
                         .filter_by(id=txn.id, user_id=user_id_str)
@@ -290,7 +303,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                         new_transactions.append(txn)
 
                 logger.info(
-                    f"[SYNC] {existing_count} out of {len(transactions)} transactions already exist in database"
+                    f"[SYNC] {existing_count} out of {len(filtered_transactions)} transactions already exist in database"
                 )
 
                 # Only process new transactions
@@ -466,10 +479,29 @@ def sync_bills_pot_transactions(
             logger.info(
                 f"[SYNC] Found existing bills pot transactions, latest transaction ID: {latest_bills_txn.id}"
             )
-            # Incremental sync - use the latest transaction ID
+            # Incremental sync - use the latest transaction ID with time limit
             latest_txn_id = latest_bills_txn.id
-            transactions = monzo.client._get_all_transactions(
+            
+            # Add a reasonable time limit to prevent pulling too much historical data
+            now = datetime.now(timezone.utc)
+            time_limit = now - timedelta(days=10)
+            
+            logger.info(
+                f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 10-day time limit: {time_limit.isoformat()})"
+            )
+            
+            all_transactions = monzo.client._get_all_transactions(
                 account_id=pot_account_id, since=latest_txn_id
+            )
+            
+            # Filter transactions to only include those within the time limit
+            transactions = [
+                txn for txn in all_transactions 
+                if txn.created >= time_limit
+            ]
+            
+            logger.info(
+                f"[SYNC] Pulled {len(all_transactions)} bills pot transactions, filtered to {len(transactions)} within 10-day limit"
             )
 
         logger.info(
