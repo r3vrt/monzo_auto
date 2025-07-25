@@ -92,6 +92,13 @@ class RulesManager:
             List[AutomationRule]: List of rules
         """
         try:
+            # Ensure we start with a clean transaction state
+            try:
+                self.db.rollback()
+            except Exception:
+                # If rollback fails, it might mean we're already in a clean state
+                pass
+            
             query = self.db.query(AutomationRule).filter_by(user_id=user_id)
             if rule_type:
                 query = query.filter_by(rule_type=rule_type)
@@ -100,6 +107,10 @@ class RulesManager:
 
         except Exception as e:
             logger.error(f"Error getting rules for user {user_id}: {e}")
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
             return []
 
     def get_rule_by_id(self, rule_id: str) -> Optional[AutomationRule]:
@@ -113,9 +124,20 @@ class RulesManager:
             Optional[AutomationRule]: Rule or None if not found
         """
         try:
+            # Ensure we start with a clean transaction state
+            try:
+                self.db.rollback()
+            except Exception:
+                # If rollback fails, it might mean we're already in a clean state
+                pass
+            
             return self.db.query(AutomationRule).filter_by(rule_id=rule_id).first()
         except Exception as e:
             logger.error(f"Error getting rule {rule_id}: {e}")
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
             return None
 
     def update_rule(self, rule_id: str, updates: Dict[str, Any]) -> bool:
@@ -205,6 +227,13 @@ class RulesManager:
             List[AutomationRule]: List of enabled rules
         """
         try:
+            # Ensure we start with a clean transaction state
+            try:
+                self.db.rollback()
+            except Exception:
+                # If rollback fails, it might mean we're already in a clean state
+                pass
+            
             query = self.db.query(AutomationRule).filter_by(
                 user_id=user_id, enabled=True
             )
@@ -215,6 +244,10 @@ class RulesManager:
 
         except Exception as e:
             logger.error(f"Error getting enabled rules for user {user_id}: {e}")
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
             return []
 
     def toggle_rule(self, rule_id: str) -> bool:

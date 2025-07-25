@@ -69,7 +69,15 @@ class AutomationIntegration:
 
         try:
             # Get enabled automation rules for this user
-            enabled_rules = self.rules_manager.get_enabled_rules(user_id)
+            try:
+                enabled_rules = self.rules_manager.get_enabled_rules(user_id)
+            except Exception as e:
+                logger.error(f"[AUTOMATION] Error getting enabled rules: {e}")
+                try:
+                    self.db.rollback()
+                except Exception:
+                    pass
+                return results
 
             if not enabled_rules:
                 logger.info(
