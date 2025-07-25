@@ -343,9 +343,8 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.info(f"[SYNC] Latest transaction {latest_txn_id} is older than 3-day limit ({time_limit_iso}), skipping sync to prevent hangs")
                 return
             
+            # Try transaction ID-based sync first
             logger.debug(f"[SYNC] About to call Monzo API for transactions since {latest_txn_id}")
-            # Use regular get_transactions instead of _get_all_transactions for incremental sync
-            # This is more reliable and less likely to cause hangs
             transactions = safe_api_call(
                 lambda: monzo.get_transactions(
                     account_id, since=latest_txn_id, limit=100
@@ -353,6 +352,51 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 timeout_seconds=15
             )
             logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
+            
+            # Check for potential loop: if we get the same number of transactions as expected
+            # and they all have the same creation date as the latest transaction, it might be a loop
+            if transactions and len(transactions) == 100:
+                # Check if all transactions have the same date as the latest transaction
+                # This could indicate we're in a loop getting the same data
+                first_txn_date = transactions[0].created
+                last_txn_date = transactions[-1].created
+                
+                # Also check if we're getting transactions that are too close to the latest transaction
+                # This could indicate we're in a loop getting the same data
+                time_diff_seconds = abs((first_txn_date - latest_txn_date).total_seconds())
+                
+                if (first_txn_date == last_txn_date and time_diff_seconds < 60):  # Within 1 minute
+                    logger.warning(f"[SYNC] Potential loop detected - all transactions have same date as latest. Falling back to date-based sync.")
+                    
+                    # Fallback to date-based sync
+                    fallback_since = latest_txn_date.isoformat()
+                    logger.info(f"[SYNC] Using date-based fallback: since={fallback_since}")
+                    
+                    transactions = safe_api_call(
+                        lambda: monzo.get_transactions(
+                            account_id, since=fallback_since, limit=100
+                        ),
+                        timeout_seconds=15
+                    )
+                    logger.debug(f"[SYNC] Date-based fallback completed, received {len(transactions) if transactions else 0} transactions")
+                
+                # Additional check: if we get exactly 100 transactions and they're all from the same time period
+                # as the latest transaction, it might be a loop
+                elif (len(transactions) == 100 and 
+                      time_diff_seconds < 300):  # Within 5 minutes
+                    logger.warning(f"[SYNC] Potential loop detected - got 100 transactions from same time period as latest. Falling back to date-based sync.")
+                    
+                    # Fallback to date-based sync with a small buffer
+                    fallback_since = (latest_txn_date + timedelta(seconds=1)).isoformat()
+                    logger.info(f"[SYNC] Using date-based fallback with buffer: since={fallback_since}")
+                    
+                    transactions = safe_api_call(
+                        lambda: monzo.get_transactions(
+                            account_id, since=fallback_since, limit=100
+                        ),
+                        timeout_seconds=15
+                    )
+                    logger.debug(f"[SYNC] Date-based fallback completed, received {len(transactions) if transactions else 0} transactions")
             
             # If no transactions returned, log and exit early to prevent hangs
             if not transactions:
