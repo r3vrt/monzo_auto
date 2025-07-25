@@ -384,19 +384,20 @@ class AutomationQueueManager:
                     pot_allocations.append(allocation)
             
             return AutosorterConfig(
-                rule_id=rule.rule_id,
-                user_id=rule.user_id,
+                holding_pot_id=config.get("holding_pot_id", ""),
+                bills_pot_id=config.get("bills_pot_id", ""),
+                priority_pots=[p for p in pot_allocations if p.allocation_type == "priority"],
+                goal_pots=[p for p in pot_allocations if p.allocation_type == "goal"],
+                investment_pots=[p for p in pot_allocations if p.allocation_type == "investment"],
+                holding_reserve_amount=config.get("holding_reserve_amount"),
+                holding_reserve_percentage=config.get("holding_reserve_percentage"),
+                min_holding_balance=config.get("min_holding_balance", 10000),
+                include_goal_pots=config.get("include_goal_pots", True),
                 trigger_type=trigger_type,
-                pot_allocations=pot_allocations,
-                source_pot_name=config.get("source_pot_name", "Main Account"),
-                min_amount=config.get("min_amount", 0),
-                max_amount=config.get("max_amount"),
-                trigger_day=config.get("trigger_day"),
-                trigger_hour=config.get("trigger_hour"),
-                trigger_minute=config.get("trigger_minute"),
-                trigger_interval=config.get("trigger_interval"),
-                min_balance=config.get("min_balance"),
-                target_balance=config.get("target_balance")
+                payday_date=config.get("payday_date", 25),
+                time_of_day_trigger=config.get("time_of_day_trigger"),
+                transaction_trigger=config.get("transaction_trigger"),
+                date_range_trigger=config.get("date_range_trigger")
             )
             
         except Exception as e:
@@ -404,11 +405,12 @@ class AutomationQueueManager:
             # Return a basic config as fallback
             from .autosorter import AutosorterConfig, TriggerType
             return AutosorterConfig(
-                rule_id=rule.rule_id,
-                user_id=rule.user_id,
-                trigger_type=TriggerType.PAYDAY_DATE,
-                pot_allocations=[],
-                source_pot_name="Main Account"
+                holding_pot_id="",
+                bills_pot_id="",
+                priority_pots=[],
+                goal_pots=[],
+                investment_pots=[],
+                trigger_type=TriggerType.PAYDAY_DATE
             )
     
     def _worker_loop(self):
