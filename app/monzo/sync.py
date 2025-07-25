@@ -237,8 +237,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                     lambda: monzo.get_transactions(
                         account_id, 
                         since=current_since,
-                        limit=100,
-                        auto_paginate=False
+                        limit=100
                     ),
                     timeout_seconds=30
                 )
