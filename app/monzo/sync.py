@@ -62,9 +62,11 @@ def safe_api_call(api_func, timeout_seconds=30, *args, **kwargs):
     
     if thread.is_alive():
         logger.error(f"API call timed out after {timeout_seconds} seconds")
+        logger.debug(f"[API] Thread is still alive after {timeout_seconds}s timeout - this indicates a hang")
         raise TimeoutException(f"API call timed out after {timeout_seconds} seconds")
     
     if exception[0]:
+        logger.debug(f"[API] API call failed with exception: {exception[0]}")
         raise exception[0]
     
     return result[0]
@@ -330,12 +332,14 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Latest transaction date: {latest_txn_date}, days since: {days_since_latest}"
             )
             
+            logger.debug(f"[SYNC] About to call Monzo API for transactions since {latest_txn_id}")
             transactions = safe_api_call(
                 lambda: monzo.client._get_all_transactions(
                     account_id, since=latest_txn_id
                 ),
                 timeout_seconds=15
             )
+            logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
             
             logger.info(
                 f"[SYNC] Raw API response: {len(transactions)} transactions received"

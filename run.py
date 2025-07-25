@@ -10,14 +10,25 @@ from app.automation.integration import AutomationIntegration
 from datetime import datetime
 import os
 
+# Enhanced logging configuration for debugging hangs
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(message)s',
+    level=logging.DEBUG,  # Set to DEBUG for maximum verbosity
+    format='%(asctime)s %(name)s %(levelname)s %(message)s',
     handlers=[
         logging.FileHandler('monzo_app.log'),
         logging.StreamHandler()
     ]
 )
+
+# Set specific loggers to DEBUG level for detailed debugging
+logging.getLogger('app.monzo.sync').setLevel(logging.DEBUG)
+logging.getLogger('app.automation').setLevel(logging.DEBUG)
+logging.getLogger('app.monzo.client').setLevel(logging.DEBUG)
+logging.getLogger('urllib3').setLevel(logging.DEBUG)  # HTTP request logging
+logging.getLogger('requests').setLevel(logging.DEBUG)  # HTTP request logging
+
+# Flask logging
+logging.getLogger('werkzeug').setLevel(logging.DEBUG)  # Flask development server logs
 
 # Auto-create tables if they do not exist
 Base.metadata.create_all(engine)
@@ -240,7 +251,8 @@ def scheduled_sync():
         except Exception as e:
             logging.error(f"[SCHEDULER] Critical error in scheduled sync: {e}")
             db.rollback()
-            raise
+            # Don't raise the exception - just log it and continue
+            # This prevents the app from exiting on sync failures
 
 # Scheduled automation job (runs more frequently for time-sensitive triggers)
 def scheduled_automation():
@@ -278,7 +290,8 @@ def scheduled_automation():
         except Exception as e:
             logging.error(f"[AUTOMATION] Critical error in scheduled automation: {e}")
             db.rollback()
-            raise
+            # Don't raise the exception - just log it and continue
+            # This prevents the app from exiting on automation failures
 
 # Start the automation queue manager
 from app.automation.queue_manager import get_queue_manager
