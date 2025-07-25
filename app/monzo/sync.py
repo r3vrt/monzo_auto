@@ -88,84 +88,110 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
     except Exception:
         # If rollback fails, it might mean we're already in a clean state
         pass
+    
     # Get the monzo_user_id from the database user
     # user_id could be either the database user.id (int) or monzo_user_id (str)
-    if isinstance(user_id, int):
-        # user_id is the database user.id
-        user = db.query(User).filter_by(id=user_id).first()
-        if not user:
-            logger.error(f"[SYNC] User with id {user_id} not found")
-            return
-        user_id_str = user.monzo_user_id
-    else:
-        # user_id is already the monzo_user_id
-        user_id_str = user_id
+    try:
+        if isinstance(user_id, int):
+            # user_id is the database user.id
+            user = db.query(User).filter_by(id=user_id).first()
+            if not user:
+                logger.error(f"[SYNC] User with id {user_id} not found")
+                return
+            user_id_str = user.monzo_user_id
+        else:
+            # user_id is already the monzo_user_id
+            user_id_str = user_id
+    except Exception as e:
+        logger.error(f"[SYNC] Error getting user info: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return
 
     # Fetch account details
-    accounts = monzo.get_accounts()
-    acc = next(
-        (a for a in accounts if a.id == account_id and not getattr(a, "closed", False)),
-        None,
-    )
-    if acc:
-        db_acc = db.query(Account).filter_by(id=account_id, user_id=user_id_str).first()
-        if db_acc:
-            db_acc.description = acc.description
-            db_acc.type = acc.type
-            db_acc.closed = int(acc.closed)
-            db_acc.updated_at = datetime.now(timezone.utc)
+    try:
+        accounts = monzo.get_accounts()
+        acc = next(
+            (a for a in accounts if a.id == account_id and not getattr(a, "closed", False)),
+            None,
+        )
+        if acc:
+            db_acc = db.query(Account).filter_by(id=account_id, user_id=user_id_str).first()
+            if db_acc:
+                db_acc.description = acc.description
+                db_acc.type = acc.type
+                db_acc.closed = int(acc.closed)
+                db_acc.updated_at = datetime.now(timezone.utc)
+            else:
+                db_acc = Account(
+                    id=acc.id,
+                    user_id=user_id_str,
+                    description=acc.description,
+                    type=acc.type,
+                    created=acc.created,
+                    closed=int(acc.closed),
+                    updated_at=datetime.now(timezone.utc),
+                    is_active=True,
+                )
+                db.add(db_acc)
         else:
-            db_acc = Account(
-                id=acc.id,
-                user_id=user_id_str,
-                description=acc.description,
-                type=acc.type,
-                created=acc.created,
-                closed=int(acc.closed),
-                updated_at=datetime.now(timezone.utc),
-                is_active=True,
-            )
-            db.add(db_acc)
-    else:
-        # If the account is closed, skip syncing
+            # If the account is closed, skip syncing
+            logger.info(f"[SYNC] Account {account_id} is closed or not found, skipping sync")
+            return
+    except Exception as e:
+        logger.error(f"[SYNC] Error fetching account details: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return
     # Fetch pots
-    pots = monzo.get_pots(account_id)
-    for pot in pots:
-        if getattr(pot, "deleted", False):
-            continue  # Skip deleted pots
-        db_pot = db.query(Pot).filter_by(id=pot.id, user_id=user_id_str).first()
-        if db_pot:
-            db_pot.name = pot.name
-            db_pot.style = getattr(pot, "style", None)
-            db_pot.balance = pot.balance
-            db_pot.currency = pot.currency
-            db_pot.created = pot.created
-            db_pot.updated = pot.updated
-            db_pot.deleted = 0
-            db_pot.pot_current_id = getattr(pot, "pot_current_id", None)
-            # Sync goal_amount from API to goal field in database
-            goal_amount = getattr(pot, "goal_amount", None)
-            if goal_amount is not None:
-                db_pot.goal = goal_amount
-        else:
-            # Get goal_amount from API
-            goal_amount = getattr(pot, "goal_amount", None)
-            db_pot = Pot(
-                id=pot.id,
-                account_id=account_id,
-                user_id=user_id_str,
-                name=pot.name,
-                style=getattr(pot, "style", None),
-                balance=pot.balance,
-                currency=pot.currency,
-                created=pot.created,
-                updated=pot.updated,
-                deleted=0,
-                pot_current_id=getattr(pot, "pot_current_id", None),
-                goal=goal_amount if goal_amount is not None else 0,
-            )
-            db.add(db_pot)
+    try:
+        pots = monzo.get_pots(account_id)
+        for pot in pots:
+            if getattr(pot, "deleted", False):
+                continue  # Skip deleted pots
+            db_pot = db.query(Pot).filter_by(id=pot.id, user_id=user_id_str).first()
+            if db_pot:
+                db_pot.name = pot.name
+                db_pot.style = getattr(pot, "style", None)
+                db_pot.balance = pot.balance
+                db_pot.currency = pot.currency
+                db_pot.created = pot.created
+                db_pot.updated = pot.updated
+                db_pot.deleted = 0
+                db_pot.pot_current_id = getattr(pot, "pot_current_id", None)
+                # Sync goal_amount from API to goal field in database
+                goal_amount = getattr(pot, "goal_amount", None)
+                if goal_amount is not None:
+                    db_pot.goal = goal_amount
+            else:
+                # Get goal_amount from API
+                goal_amount = getattr(pot, "goal_amount", None)
+                db_pot = Pot(
+                    id=pot.id,
+                    account_id=account_id,
+                    user_id=user_id_str,
+                    name=pot.name,
+                    style=getattr(pot, "style", None),
+                    balance=pot.balance,
+                    currency=pot.currency,
+                    created=pot.created,
+                    updated=pot.updated,
+                    deleted=0,
+                    pot_current_id=getattr(pot, "pot_current_id", None),
+                    goal=goal_amount if goal_amount is not None else 0,
+                )
+                db.add(db_pot)
+    except Exception as e:
+        logger.error(f"[SYNC] Error fetching pots: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return
     # Fetch transactions
     now = datetime.now(timezone.utc)
 
