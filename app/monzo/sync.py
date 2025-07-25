@@ -358,6 +358,15 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             f"[SYNC] Using latest transaction ID for incremental sync: {latest_txn_id}"
         )
         
+        # Add detailed diagnostics for debugging device-specific issues
+        logger.info(f"[SYNC-DEBUG] Latest transaction details:")
+        logger.info(f"[SYNC-DEBUG]   ID: {latest_txn_id}")
+        logger.info(f"[SYNC-DEBUG]   Created: {latest_txn.created}")
+        logger.info(f"[SYNC-DEBUG]   Amount: {latest_txn.amount}")
+        logger.info(f"[SYNC-DEBUG]   Description: {latest_txn.description}")
+        logger.info(f"[SYNC-DEBUG]   Current time: {now}")
+        logger.info(f"[SYNC-DEBUG]   Time since latest: {(now - latest_txn.created).total_seconds()} seconds")
+        
 
         
         # Add a reasonable time limit to prevent pulling too much historical data
@@ -366,6 +375,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         latest_txn_date = latest_txn.created
         time_limit = latest_txn_date - timedelta(days=3)
         time_limit_iso = time_limit.isoformat()
+        
+        # Prevent syncing if the latest transaction is too recent (within last 15 minutes)
+        # This prevents rapid-fire API calls that could cause loops
+        # Scheduler runs every 10 minutes, so we need at least 15 minutes cooldown
+        if (now - latest_txn_date).total_seconds() < 900:  # 15 minutes
+            logger.info(f"[SYNC] Latest transaction {latest_txn_id} is too recent (within 15 minutes), skipping sync to prevent loops")
+            return
         
         try:
             logger.info(
@@ -378,65 +394,38 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Latest transaction date: {latest_txn_date}, days since: {days_since_latest}"
             )
             
-            # Check if we're within the time limit - if not, skip the API call to prevent hangs
-            if latest_txn_date < time_limit:
-                logger.info(f"[SYNC] Latest transaction {latest_txn_id} is older than 3-day limit ({time_limit_iso}), skipping sync to prevent hangs")
-                return
+            # We don't need the 3-day limit check here since we're looking for NEWER transactions
+            # The API call will only return transactions newer than the latest one
             
-            # Try transaction ID-based sync first
-            logger.debug(f"[SYNC] About to call Monzo API for transactions since {latest_txn_id}")
+            # Use the library's get_transactions with limit=100 to avoid the pagination bug
+            # The library's _get_all_transactions has a bug where it uses since_id = transactions[-1].id
+            # which can cause loops when there are no new transactions
+            logger.info(f"[SYNC] Using single API call with limit=100 to avoid pagination loops")
+            
+            # Add API call diagnostics
+            logger.info(f"[SYNC-DEBUG] About to call Monzo API:")
+            logger.info(f"[SYNC-DEBUG]   Account ID: {account_id}")
+            logger.info(f"[SYNC-DEBUG]   Since: {latest_txn_id}")
+            logger.info(f"[SYNC-DEBUG]   Limit: 100")
+            logger.info(f"[SYNC-DEBUG]   Timeout: 15 seconds")
+            
             transactions = safe_api_call(
                 lambda: monzo.get_transactions(
                     account_id, since=latest_txn_id, limit=100
                 ),
                 timeout_seconds=15
             )
-            logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
             
-            # Check for potential loop: if we get the same number of transactions as expected
-            # and they all have the same creation date as the latest transaction, it might be a loop
-            if transactions and len(transactions) == 100:
-                # Check if all transactions have the same date as the latest transaction
-                # This could indicate we're in a loop getting the same data
-                first_txn_date = transactions[0].created
-                last_txn_date = transactions[-1].created
-                
-                # Also check if we're getting transactions that are too close to the latest transaction
-                # This could indicate we're in a loop getting the same data
-                time_diff_seconds = abs((first_txn_date - latest_txn_date).total_seconds())
-                
-                if (first_txn_date == last_txn_date and time_diff_seconds < 60):  # Within 1 minute
-                    logger.warning(f"[SYNC] Potential loop detected - all transactions have same date as latest. Falling back to date-based sync.")
-                    
-                    # Fallback to date-based sync
-                    fallback_since = latest_txn_date.isoformat()
-                    logger.info(f"[SYNC] Using date-based fallback: since={fallback_since}")
-                    
-                    transactions = safe_api_call(
-                        lambda: monzo.get_transactions(
-                            account_id, since=fallback_since, limit=100
-                        ),
-                        timeout_seconds=15
-                    )
-                    logger.debug(f"[SYNC] Date-based fallback completed, received {len(transactions) if transactions else 0} transactions")
-                
-                # Additional check: if we get exactly 100 transactions and they're all from the same time period
-                # as the latest transaction, it might be a loop
-                elif (len(transactions) == 100 and 
-                      time_diff_seconds < 300):  # Within 5 minutes
-                    logger.warning(f"[SYNC] Potential loop detected - got 100 transactions from same time period as latest. Falling back to date-based sync.")
-                    
-                    # Fallback to date-based sync with a small buffer
-                    fallback_since = (latest_txn_date + timedelta(seconds=1)).isoformat()
-                    logger.info(f"[SYNC] Using date-based fallback with buffer: since={fallback_since}")
-                    
-                    transactions = safe_api_call(
-                        lambda: monzo.get_transactions(
-                            account_id, since=fallback_since, limit=100
-                        ),
-                        timeout_seconds=15
-                    )
-                    logger.debug(f"[SYNC] Date-based fallback completed, received {len(transactions) if transactions else 0} transactions")
+            # Add response diagnostics
+            logger.info(f"[SYNC-DEBUG] API response received:")
+            logger.info(f"[SYNC-DEBUG]   Transactions count: {len(transactions) if transactions else 0}")
+            if transactions:
+                logger.info(f"[SYNC-DEBUG]   First transaction ID: {transactions[0].id}")
+                logger.info(f"[SYNC-DEBUG]   Last transaction ID: {transactions[-1].id}")
+                logger.info(f"[SYNC-DEBUG]   First transaction created: {transactions[0].created}")
+                logger.info(f"[SYNC-DEBUG]   Last transaction created: {transactions[-1].created}")
+            
+            logger.debug(f"[SYNC] Monzo API call completed, received {len(transactions) if transactions else 0} transactions")
             
             # If no transactions returned, log and exit early to prevent hangs
             if not transactions:
@@ -447,10 +436,11 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Raw API response: {len(transactions)} transactions received"
             )
             
-            # Filter transactions to only include those within 3 days of the latest transaction
+            # Filter transactions to only include those newer than the latest transaction
+            # and within a reasonable time range (not too old)
             filtered_transactions = [
                 txn for txn in transactions 
-                if txn.created >= time_limit
+                if txn.created > latest_txn_date  # Must be newer than latest
             ]
             
             # Additional safety: limit to max 100 transactions to prevent hangs
