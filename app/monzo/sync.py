@@ -141,22 +141,26 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
         )
 
     if first_time:
-        # For first-time sync, we need to use a date-based approach since we don't have a transaction ID
-        window_sizes = [89, 50, 30, 10]
-        for days in window_sizes:
-            since = now - timedelta(days=days)
+        # For first-time sync, use 10-day chunks to avoid timeouts
+        # Start from 90 days ago and work backwards in 10-day chunks
+        start_date = now - timedelta(days=90)
+        chunk_size = 10  # days per chunk
+        
+        current_start = start_date
+        while current_start < now:
+            current_end = min(current_start + timedelta(days=chunk_size), now)
+            
             try:
-                # signal.alarm(10)  # Uncomment for process-level timeout (10s)
-                now_iso = now.isoformat()
                 logger.info(
-                    f"[SYNC] Pulling transactions for account {account_id} since {since.isoformat()} before {now_iso}"
+                    f"[SYNC] Pulling transactions for account {account_id} from {current_start.isoformat()} to {current_end.isoformat()}"
                 )
                 transactions = monzo.client._get_all_transactions(
-                    account_id, since=since.isoformat(), before=now_iso
+                    account_id, since=current_start.isoformat(), before=current_end.isoformat()
                 )
                 logger.info(
-                    f"[SYNC] Pulled {len(transactions)} transactions for account {account_id}"
+                    f"[SYNC] Pulled {len(transactions)} transactions for account {account_id} in this chunk"
                 )
+                
                 if transactions:
                     logger.info(
                         f"[SYNC] First txn: {transactions[0].id} {transactions[0].created}, Last txn: {transactions[-1].id} {transactions[-1].created}"
@@ -220,38 +224,36 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                             f"[SYNC] Committed {len(new_transactions)} new transactions to database"
                         )
                     else:
-                        logger.info("[SYNC] No new transactions to commit")
-
-                # If we found transactions, we're done with first-time sync
-                if transactions:
-                    logger.info(f"First-time sync succeeded for {days} days window.")
-
-                    # Trigger automation after successful first-time sync
-                    try:
-                        automation = AutomationIntegration(db, monzo)
-                        automation_results = automation.execute_post_sync_automation(
-                            user_id_str, account_id
-                        )
-                        logger.info(
-                            f"[SYNC] Automation results for first-time sync account {account_id}: {automation_results}"
-                        )
-                    except Exception as automation_error:
-                        logger.error(
-                            f"[SYNC] Automation failed for first-time sync account {account_id}: {automation_error}"
-                        )
-                        # Don't fail the sync if automation fails
-
-                    break
-                else:
-                    logger.info(
-                        f"First-time sync completed for {days} days window but no transactions found. Trying next window."
-                    )
+                        logger.info("[SYNC] No new transactions to commit in this chunk")
+                
+                # Move to next chunk
+                current_start = current_end
+                
             except Exception as e:
-                # signal.alarm(0)
-                logger.warning(f"Sync failed for {days} days window: {e}")
+                logger.error(
+                    f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
+                )
+                # Continue with next chunk instead of failing completely
+                current_start = current_end
                 continue
-        else:
-            logger.error("Failed to sync after all retries.")
+
+        logger.info(f"First-time sync completed for account {account_id} using 10-day chunks.")
+
+        # Trigger automation after successful first-time sync
+        try:
+            automation = AutomationIntegration(db, monzo)
+            automation_results = automation.execute_post_sync_automation(
+                user_id_str, account_id
+            )
+            logger.info(
+                f"[SYNC] Automation results for first-time sync account {account_id}: {automation_results}"
+            )
+        except Exception as automation_error:
+            logger.error(
+                f"[SYNC] Automation failed for first-time sync account {account_id}: {automation_error}"
+            )
+            # Don't fail the sync if automation fails
+
     else:
         # Incremental sync - use the latest transaction ID for more reliable syncing
         latest_txn_id = latest_txn.id
