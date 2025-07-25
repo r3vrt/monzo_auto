@@ -199,7 +199,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                         since=current_start.isoformat(), 
                         before=current_end.isoformat()
                     ),
-                    timeout_seconds=30
+                    timeout_seconds=60
                 )
                 logger.info(
                     f"[SYNC] Pulled {len(transactions)} transactions for account {account_id} in this chunk"
@@ -273,6 +273,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 # Move to next chunk
                 current_start = current_end
                 
+            except TimeoutException as e:
+                logger.error(
+                    f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
+                )
+                # Continue with next chunk instead of failing completely
+                current_start = current_end
+                continue
             except Exception as e:
                 logger.error(
                     f"[SYNC] Error pulling transactions for chunk {current_start.isoformat()} to {current_end.isoformat()}: {e}"
@@ -314,11 +321,23 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             logger.info(
                 f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit_iso})"
             )
+            
+            # Add debug info about the latest transaction
+            latest_txn_date = latest_txn.created
+            days_since_latest = (now - latest_txn_date).days
+            logger.info(
+                f"[SYNC] Latest transaction date: {latest_txn_date}, days since: {days_since_latest}"
+            )
+            
             transactions = safe_api_call(
                 lambda: monzo.client._get_all_transactions(
                     account_id, since=latest_txn_id
                 ),
-                timeout_seconds=30
+                timeout_seconds=15
+            )
+            
+            logger.info(
+                f"[SYNC] Raw API response: {len(transactions)} transactions received"
             )
             
             # Filter transactions to only include those within the time limit
@@ -512,7 +531,7 @@ def sync_bills_pot_transactions(
                             since=current_start.isoformat(), 
                             before=current_end.isoformat()
                         ),
-                        timeout_seconds=30
+                        timeout_seconds=15
                     )
                     logger.info(
                         f"[SYNC] Pulled {len(chunk_transactions)} bills pot transactions in this chunk"
@@ -552,7 +571,7 @@ def sync_bills_pot_transactions(
                 lambda: monzo.client._get_all_transactions(
                     account_id=pot_account_id, since=latest_txn_id
                 ),
-                timeout_seconds=30
+                timeout_seconds=15
             )
             
             # Filter transactions to only include those within the time limit
