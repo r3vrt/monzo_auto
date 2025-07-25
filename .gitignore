@@ -38,6 +38,9 @@ logs/
 *.log
 monzo_app.log
 
+# But don't ignore template logs directory
+!app/templates/logs/
+
 # IDE
 .vscode/
 .idea/
