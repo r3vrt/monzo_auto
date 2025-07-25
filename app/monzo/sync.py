@@ -14,6 +14,7 @@ Key Features:
 import ast
 import json
 import logging
+import signal
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -24,11 +25,44 @@ from app.models import Account, BillsPotTransaction, Pot, Transaction, User
 
 logger = logging.getLogger(__name__)
 
-# Placeholder for process-level timeout (for future use)
-# import signal
-# class TimeoutException(Exception): pass
-# def handler(signum, frame): raise TimeoutException()
-# signal.signal(signal.SIGALRM, handler)
+# Timeout handling for API calls
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException("API call timed out")
+
+def safe_api_call(api_func, timeout_seconds=30, *args, **kwargs):
+    """
+    Execute an API call with a timeout to prevent hangs.
+    
+    Args:
+        api_func: The API function to call
+        timeout_seconds: Timeout in seconds (default 30)
+        *args, **kwargs: Arguments to pass to the API function
+    
+    Returns:
+        The result of the API call
+    
+    Raises:
+        TimeoutException: If the call times out
+    """
+    # Set up the timeout
+    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout_seconds)
+    
+    try:
+        result = api_func(*args, **kwargs)
+        signal.alarm(0)  # Cancel the alarm
+        return result
+    except TimeoutException:
+        logger.error(f"API call timed out after {timeout_seconds} seconds")
+        raise
+    except Exception as e:
+        signal.alarm(0)  # Cancel the alarm
+        raise
+    finally:
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
@@ -154,8 +188,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.info(
                     f"[SYNC] Pulling transactions for account {account_id} from {current_start.isoformat()} to {current_end.isoformat()}"
                 )
-                transactions = monzo.client._get_all_transactions(
-                    account_id, since=current_start.isoformat(), before=current_end.isoformat()
+                transactions = safe_api_call(
+                    lambda: monzo.client._get_all_transactions(
+                        account_id, 
+                        since=current_start.isoformat(), 
+                        before=current_end.isoformat()
+                    ),
+                    timeout_seconds=30
                 )
                 logger.info(
                     f"[SYNC] Pulled {len(transactions)} transactions for account {account_id} in this chunk"
@@ -270,8 +309,11 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             logger.info(
                 f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit_iso})"
             )
-            transactions = monzo.client._get_all_transactions(
-                account_id, since=latest_txn_id
+            transactions = safe_api_call(
+                lambda: monzo.client._get_all_transactions(
+                    account_id, since=latest_txn_id
+                ),
+                timeout_seconds=30
             )
             
             # Filter transactions to only include those within the time limit
@@ -459,10 +501,13 @@ def sync_bills_pot_transactions(
                     logger.info(
                         f"[SYNC] Pulling bills pot transactions from {current_start.isoformat()} to {current_end.isoformat()}"
                     )
-                    chunk_transactions = monzo.client._get_all_transactions(
-                        account_id=pot_account_id, 
-                        since=current_start.isoformat(), 
-                        before=current_end.isoformat()
+                    chunk_transactions = safe_api_call(
+                        lambda: monzo.client._get_all_transactions(
+                            account_id=pot_account_id, 
+                            since=current_start.isoformat(), 
+                            before=current_end.isoformat()
+                        ),
+                        timeout_seconds=30
                     )
                     logger.info(
                         f"[SYNC] Pulled {len(chunk_transactions)} bills pot transactions in this chunk"
@@ -498,8 +543,11 @@ def sync_bills_pot_transactions(
                 f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit.isoformat()})"
             )
             
-            all_transactions = monzo.client._get_all_transactions(
-                account_id=pot_account_id, since=latest_txn_id
+            all_transactions = safe_api_call(
+                lambda: monzo.client._get_all_transactions(
+                    account_id=pot_account_id, since=latest_txn_id
+                ),
+                timeout_seconds=30
             )
             
             # Filter transactions to only include those within the time limit
