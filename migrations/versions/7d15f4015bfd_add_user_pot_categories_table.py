@@ -1,7 +1,7 @@
 """Add user_pot_categories table
 
 Revision ID: 7d15f4015bfd
-Revises: 
+Revises: 93e2b5db4393
 Create Date: 2025-07-22 20:09:53.186800
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '7d15f4015bfd'
-down_revision: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = '93e2b5db4393'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
