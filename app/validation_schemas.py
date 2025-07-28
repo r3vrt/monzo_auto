@@ -19,7 +19,7 @@ class AccountSelectSchema(Schema):
         keys=fields.String(validate=validate.Length(min=1, max=100)),
         values=fields.String(validate=validate.Length(min=0, max=200)),
         required=False,
-        missing={}
+        allow_none=True
     )
 
 
@@ -34,7 +34,7 @@ class AutomationRuleCreateSchema(Schema):
         validate=validate.OneOf(['pot_sweep', 'autosorter', 'auto_topup', 'bills_pot_logic'])
     )
     config = fields.Dict(required=True)
-    enabled = fields.Boolean(required=False, missing=True)
+    enabled = fields.Boolean(required=False, allow_none=True)
 
 
 class AutomationRuleUpdateSchema(Schema):
