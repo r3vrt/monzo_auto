@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Application Logs - Monzo App{% endblock %}
+
+{% block page_title %}📋 Application Logs{% endblock %}
+{% block page_subtitle %}View recent application activity{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Logs (Last 200 Lines)</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">ℹ️ Log Information</h6>
+                    <p class="mb-0">
+                        This shows the last 200 lines from the application log file. 
+                        Use this for debugging and monitoring application activity.
+                    </p>
+                </div>
+                
+                <div class="bg-dark text-light p-3 rounded" style="max-height: 600px; overflow: auto; font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                    <pre class="mb-0">{{ log_content }}</pre>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{{ url_for('ui.landing_page') }}" class="btn btn-primary">Back to Dashboard</a>
+                    <a href="{{ url_for('ui.logging_config') }}" class="btn btn-info">Configure Logging</a>
+                    <button onclick="location.reload()" class="btn btn-secondary">Refresh Logs</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Name Accounts - Monzo App{% endblock %}
+
+{% block page_title %}✏️ Name Your Accounts{% endblock %}
+{% block page_subtitle %}Give your accounts custom names{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h5 class="alert-heading">ℹ️ Account Naming</h5>
+            <p class="mb-0">
+                Customize the names for your selected accounts. You can keep the default names or create your own.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Account Names</h5>
+            </div>
+            <div class="card-body">
+                                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    {% for acc in selected_accounts %}
+                    <div class="mb-3">
+                        <input type="hidden" name="account_id" value="{{ acc.id }}">
+                        <label for="name_{{ acc.id }}" class="form-label">
+                            Custom name for <strong>{{ acc.name }}</strong> ({{ acc.type }}):
+                        </label>
+                        <input type="text" class="form-control" name="name_{{ acc.id }}" 
+                               id="name_{{ acc.id }}" value="{{ acc.name }}" required>
+                    </div>
+                    {% endfor %}
+                    
+                    <input type="hidden" name="name_entry" value="1">
+                    <button type="submit" class="btn btn-primary">Import with Names</button>
+                    <a href="{{ url_for('ui.accounts_select_ui') }}" class="btn btn-secondary">Back</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

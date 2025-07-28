@@ -3,11 +3,30 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtualenv
 venv/
 .env
 .venv/
+env/
+ENV/
 
 # Database
 *.db
@@ -17,11 +36,17 @@ profiler.sqlite
 # Logs
 logs/
 *.log
+monzo_app.log
+
+# But don't ignore template logs directory
+!app/templates/logs/
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 
 # Config (real secrets, not examples)
 config/*.json
@@ -30,12 +55,19 @@ config/*.json
 # Backup and temp files
 *.bak
 *.backup*
-*~
 .DS_Store
+Thumbs.db
 
 # Test output
 .coverage
 htmlcov/
+.pytest_cache/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
 
 # Flask profiler
 flask_profiler/
@@ -45,3 +77,23 @@ debug_*.py
 test_*.py 
 .cursorrules
 migrate_to_database.py
+
+# Ignore backup directory for old project files
+backup/
+
+# Environment variables
+.env.local
+.env.production
+.env.staging
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Security documentation (contains sensitive vulnerability info)
+SECURITY_TODO.md

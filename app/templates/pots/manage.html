@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}Pot Management - Monzo App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .categories-section {
+        margin-bottom: 30px;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    
+    .category-card {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .category-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .category-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .category-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+        text-transform: capitalize;
+    }
+    
+    .category-balance {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .pot-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .pot-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .pot-item:last-child {
+        border-bottom: none;
+    }
+    
+    .pot-name {
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .pot-balance {
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    .uncategorized-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .uncategorized-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .uncategorized-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .uncategorized-balance {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #6c757d;
+    }
+    
+    .uncategorized-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .uncategorized-pot {
+        background: white;
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .uncategorized-pot:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+    
+    .uncategorized-pot-name {
+        font-weight: 500;
+        margin-bottom: 5px;
+        color: #495057;
+    }
+    
+    .uncategorized-pot-balance {
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(5px);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 10% auto;
+        padding: 30px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .close {
+        color: #aaa;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+    }
+    
+    .close:hover {
+        color: #000;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #495057;
+    }
+    
+    .form-select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 1rem;
+        background-color: white;
+        transition: border-color 0.2s;
+    }
+    
+    .form-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+    }
+    
+    .loading::after {
+        content: '';
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .category-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .uncategorized-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .modal-content {
+            margin: 5% auto;
+            width: 95%;
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}🏦 Pot Management{% endblock %}
+{% block page_subtitle %}Organize your Monzo pots into categories for better automation{% endblock %}
+
+{% block content %}
+<div id="loading" class="loading">Loading pot data...</div>
+
+<div id="content" style="display: none;">
+    <!-- Stats Section -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" id="total-pots">-</div>
+            <div class="stat-label">Total Pots</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="categorized-pots">-</div>
+            <div class="stat-label">Categorized</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="total-balance">-</div>
+            <div class="stat-label">Total Balance</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="categories-count">-</div>
+            <div class="stat-label">Categories</div>
+        </div>
+    </div>
+    
+    <!-- Categories Section -->
+    <div class="categories-section">
+        <h2 class="section-title">📁 Categories</h2>
+        <div id="categories-container" class="category-grid">
+            <!-- Categories will be populated here -->
+        </div>
+    </div>
+    
+    <!-- Uncategorized Section -->
+    <div class="uncategorized-section">
+        <div class="uncategorized-header">
+            <h3 class="uncategorized-title">📦 Uncategorized Pots</h3>
+            <div class="uncategorized-balance" id="uncategorized-balance">-</div>
+        </div>
+        <div id="uncategorized-container" class="uncategorized-grid">
+            <!-- Uncategorized pots will be populated here -->
+        </div>
+    </div>
+</div>
+
+<!-- Category Assignment Modal -->
+<div id="categoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Assign to Category</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="categoryForm">
+            <div class="form-group">
+                <label class="form-label">Pot:</label>
+                <div id="modal-pot-name" style="padding: 10px; background: #f8f9fa; border-radius: 4px; font-weight: 500;"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="categorySelect">Category:</label>
+                <select id="categorySelect" class="form-select" required>
+                    <option value="">Select a category...</option>
+                    <option value="bills">💰 Bills</option>
+                    <option value="savings">🏦 Savings</option>
+                    <option value="holding">📦 Holding</option>
+                    <option value="spending">💳 Spending</option>
+                    <option value="emergency">🚨 Emergency</option>
+                    <option value="investment">📈 Investment</option>
+                    <option value="custom">🎨 Custom</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Assign Category</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Remove Category Modal -->
+<div id="removeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Remove from Category</h3>
+            <span class="close" onclick="closeRemoveModal()">&times;</span>
+        </div>
+        <div class="form-group">
+            <p>Are you sure you want to remove <strong id="remove-pot-name"></strong> from the <strong id="remove-category-name"></strong> category?</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-danger" onclick="confirmRemove()">Remove</button>
+            <button class="btn btn-secondary" onclick="closeRemoveModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentData = null;
+    let selectedPot = null;
+    let selectedCategory = null;
+    
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPotData();
+    });
+    
+    async function loadPotData() {
+        try {
+            const response = await fetch('/api/pots/categories');
+            if (!response.ok) throw new Error('Failed to load data');
+            
+            currentData = await response.json();
+            renderData();
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+        } catch (error) {
+            console.error('Error loading data:', error);
+            document.getElementById('loading').innerHTML = 'Error loading data. Please try again.';
+        }
+    }
+    
+    function renderData() {
+        renderStats();
+        renderCategories();
+        renderUncategorized();
+    }
+    
+    function renderStats() {
+        const categories = currentData.categories;
+        const uncategorized = currentData.uncategorized;
+        
+        // Count totals
+        const totalPots = Object.values(categories).reduce((sum, pots) => sum + pots.length, 0) + uncategorized.length;
+        const categorizedPots = Object.values(categories).reduce((sum, pots) => sum + pots.length, 0);
+        const categoriesCount = Object.keys(categories).length;
+        
+        // Calculate total balance
+        const totalBalance = Object.values(categories).reduce((sum, pots) => {
+            return sum + pots.reduce((catSum, pot) => catSum + pot.balance, 0);
+        }, 0) + uncategorized.reduce((sum, pot) => sum + pot.balance, 0);
+        
+        document.getElementById('total-pots').textContent = totalPots;
+        document.getElementById('categorized-pots').textContent = categorizedPots;
+        document.getElementById('categories-count').textContent = categoriesCount;
+        document.getElementById('total-balance').textContent = formatCurrency(totalBalance);
+    }
+    
+    function renderCategories() {
+        const container = document.getElementById('categories-container');
+        container.innerHTML = '';
+        
+        Object.entries(currentData.categories).forEach(([category, pots]) => {
+            const totalBalance = pots.reduce((sum, pot) => sum + pot.balance, 0);
+            
+            const categoryCard = document.createElement('div');
+            categoryCard.className = 'category-card';
+            categoryCard.innerHTML = `
+                <div class="category-header">
+                    <div class="category-name">${getCategoryDisplayName(category)}</div>
+                    <div class="category-balance">${formatCurrency(totalBalance)}</div>
+                </div>
+                <ul class="pot-list">
+                    ${pots.map(pot => `
+                        <li class="pot-item">
+                            <div class="pot-name">${pot.name}</div>
+                            <div class="btn-group">
+                                <div class="pot-balance">${formatCurrency(pot.balance)}</div>
+                                <button class="btn btn-danger btn-sm" onclick="removeFromCategory('${pot.id}', '${category}', '${pot.name}')">Remove</button>
+                            </div>
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+            container.appendChild(categoryCard);
+        });
+    }
+    
+    function renderUncategorized() {
+        const container = document.getElementById('uncategorized-container');
+        const balanceElement = document.getElementById('uncategorized-balance');
+        
+        const totalBalance = currentData.uncategorized.reduce((sum, pot) => sum + pot.balance, 0);
+        balanceElement.textContent = formatCurrency(totalBalance);
+        
+        container.innerHTML = '';
+        
+        currentData.uncategorized.forEach(pot => {
+            const potElement = document.createElement('div');
+            potElement.className = 'uncategorized-pot';
+            potElement.onclick = () => openCategoryModal(pot);
+            potElement.innerHTML = `
+                <div class="uncategorized-pot-name">${pot.name}</div>
+                <div class="uncategorized-pot-balance">${formatCurrency(pot.balance)}</div>
+            `;
+            container.appendChild(potElement);
+        });
+    }
+    
+    function openCategoryModal(pot) {
+        selectedPot = pot;
+        document.getElementById('modal-pot-name').textContent = pot.name;
+        document.getElementById('categorySelect').value = '';
+        document.getElementById('categoryModal').style.display = 'block';
+    }
+    
+    function closeModal() {
+        document.getElementById('categoryModal').style.display = 'none';
+        selectedPot = null;
+    }
+    
+    function closeRemoveModal() {
+        document.getElementById('removeModal').style.display = 'none';
+        selectedPot = null;
+        selectedCategory = null;
+    }
+    
+    function removeFromCategory(potId, category, potName) {
+        selectedPot = { id: potId, name: potName };
+        selectedCategory = category;
+        document.getElementById('remove-pot-name').textContent = potName;
+        document.getElementById('remove-category-name').textContent = getCategoryDisplayName(category);
+        document.getElementById('removeModal').style.display = 'block';
+    }
+    
+    async function confirmRemove() {
+        if (!selectedPot || !selectedCategory) return;
+        
+        try {
+            const response = await fetch('/api/pots/categories', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pot_id: selectedPot.id,
+                    category: selectedCategory
+                })
+            });
+            
+            if (!response.ok) throw new Error('Failed to remove category');
+            
+            closeRemoveModal();
+            await loadPotData(); // Reload data
+            showAlert('Pot removed from category successfully!', 'success');
+        } catch (error) {
+            console.error('Error removing category:', error);
+            showAlert('Failed to remove pot from category', 'error');
+        }
+    }
+    
+    document.getElementById('categoryForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!selectedPot) return;
+        
+        const category = document.getElementById('categorySelect').value;
+        if (!category) return;
+        
+        try {
+            const response = await fetch('/api/pots/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pot_id: selectedPot.id,
+                    category: category
+                })
+            });
+            
+            if (!response.ok) throw new Error('Failed to assign category');
+            
+            closeModal();
+            await loadPotData(); // Reload data
+            showAlert('Pot assigned to category successfully!', 'success');
+        } catch (error) {
+            console.error('Error assigning category:', error);
+            showAlert('Failed to assign pot to category', 'error');
+        }
+    });
+    
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-GB', {
+            style: 'currency',
+            currency: 'GBP'
+        }).format(amount / 100);
+    }
+    
+    function getCategoryDisplayName(category) {
+        const names = {
+            'bills': '💰 Bills',
+            'savings': '🏦 Savings',
+            'holding': '📦 Holding',
+            'spending': '💳 Spending',
+            'emergency': '🚨 Emergency',
+            'investment': '📈 Investment',
+            'custom': '🎨 Custom'
+        };
+        return names[category] || category;
+    }
+    
+    function showAlert(message, type) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
+        
+        const content = document.querySelector('.content');
+        content.insertBefore(alert, content.firstChild);
+        
+        setTimeout(() => alert.remove(), 5000);
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        const categoryModal = document.getElementById('categoryModal');
+        const removeModal = document.getElementById('removeModal');
+        
+        if (event.target === categoryModal) {
+            closeModal();
+        }
+        if (event.target === removeModal) {
+            closeRemoveModal();
+        }
+    }
+</script>
+{% endblock %} 

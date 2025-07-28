@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Connect Monzo</title>
+</head>
+<body>
+  <h2>Enter Monzo App Credentials</h2>
+  <form id="monzo-credentials-form">
+    <label>Client ID: <input type="text" name="client_id" required></label><br>
+    <label>Client Secret: <input type="text" name="client_secret" required></label><br>
+    <label>Redirect URI: <input type="text" name="redirect_uri" required></label><br>
+    <button type="submit">Save Credentials</button>
+  </form>
+  <br>
+  <button id="connect-monzo" style="display:none;">Connect Monzo</button>
+  <div id="result"></div>
+  <script>
+    document.getElementById('monzo-credentials-form').onsubmit = async function(e) {
+      e.preventDefault();
+      const data = {
+        client_id: this.client_id.value,
+        client_secret: this.client_secret.value,
+        redirect_uri: this.redirect_uri.value
+      };
+      const res = await fetch('/auth/client_info', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      document.getElementById('result').innerText = JSON.stringify(result);
+      if (result.success) {
+        document.getElementById('connect-monzo').style.display = '';
+      }
+    };
+    document.getElementById('connect-monzo').onclick = function() {
+      window.location = '/auth/start';
+    };
+  </script>
+</body>
+</html> 
