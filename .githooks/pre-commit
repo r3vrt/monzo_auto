@@ -24,10 +24,12 @@ fi
 # Check for print statements (debug pollution)
 staged_files=$(git diff --cached --name-only | grep -E '\.(py)$')
 if [ -n "$staged_files" ]; then
-    if echo "$staged_files" | xargs grep -l "print(" 2>/dev/null; then
+    # Look for actual print function calls, not just the word "print"
+    print_files=$(echo "$staged_files" | xargs grep -l "print(" 2>/dev/null | xargs grep -l "^[[:space:]]*print(" 2>/dev/null)
+    if [ -n "$print_files" ]; then
         # Allow print in specific files where it's expected
-        allowed_print_files="monitor_logs.py"
-        disallowed_prints=$(echo "$staged_files" | xargs grep -l "print(" 2>/dev/null | grep -v -E "(${allowed_print_files})")
+        allowed_print_files="monitor_logs.py|reset_db.py"
+        disallowed_prints=$(echo "$print_files" | grep -v -E "(${allowed_print_files})")
         if [ -n "$disallowed_prints" ]; then
             debug_issues+=("⚠️  Found print() statements in: $disallowed_prints")
         fi
