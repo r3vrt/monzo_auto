@@ -35,6 +35,12 @@ def landing_page():
             "description": "Create and manage automated money management rules",
         },
         {
+            "name": "Monitoring Dashboard",
+            "url": "/monitoring/dashboard",
+            "icon": "📊",
+            "description": "Monitor automation health and execution history",
+        },
+        {
             "name": "Sync Status",
             "url": "/sync/status",
             "icon": "🔄",
@@ -48,6 +54,12 @@ def landing_page():
         },
     ]
     return render_template("dashboard.html", pages=pages)
+
+
+@ui_bp.route("/debug")
+def debug_route():
+    """Simple debug route to test UI blueprint."""
+    return "<h1>✅ UI Blueprint is working!</h1><p>The landing page route should work now.</p><a href='/'>Go to Dashboard</a>"
 
 
 @ui_bp.route("/accounts/select-ui", methods=["GET", "POST"])

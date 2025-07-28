@@ -19,6 +19,14 @@ from .rules import AutomationRule, RulesManager
 from .autosorter import TriggerType, TimeOfDayTrigger, TransactionTrigger, DateRangeTrigger
 from .queue_manager import get_queue_manager, determine_rule_priority, determine_dependencies, ExecutionPriority
 
+# Import monitoring/alerting functions
+try:
+    from app.ui.monitoring import send_failure_alert
+except ImportError:
+    # Fallback if monitoring module isn't available
+    def send_failure_alert(rule_name: str, rule_type: str, error_message: str, user_id: str) -> bool:
+        return False
+
 logger = logging.getLogger(__name__)
 
 
@@ -904,6 +912,9 @@ class AutomationIntegration:
                             f"[AUTOMATION] Autosorter rule {rule.rule_id} failed: {error_msg}"
                         )
 
+                        # Send failure alert
+                        send_failure_alert(rule.name, "autosorter", error_msg, user_id)
+
                         # Store failed execution result
                         if "execution_history" not in rule.config:
                             rule.config["execution_history"] = []
@@ -1278,9 +1289,11 @@ class AutomationIntegration:
                             }
                         )
                     else:
-                        results["errors"].append(
-                            f"Auto topup rule {rule.rule_id} failed"
-                        )
+                        error_msg = f"Auto topup rule {rule.rule_id} failed"
+                        results["errors"].append(error_msg)
+
+                        # Send failure alert
+                        send_failure_alert(rule.name, "auto_topup", "Topup execution failed", user_id)
 
                         # Store failed execution result
                         if "execution_history" not in rule.config:

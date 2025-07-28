@@ -189,16 +189,24 @@ class MonzoClient:
         account_id: str,
         since: Optional[str] = None,
         before: Optional[str] = None,
+        auto_paginate: bool = False,
     ) -> List[Any]:
         """
         Returns a list of all transactions for the given account (Transaction objects).
         Automatically refreshes token if needed.
+        
+        Args:
+            account_id: The account ID
+            since: ISO 8601 timestamp or transaction ID to get transactions since
+            before: ISO 8601 timestamp to get transactions before
+            auto_paginate: If True, automatically fetch all transactions using pagination
         """
         return self._with_token_refresh(
             self.client.get_transactions,
             account_id,
             since=since,
             before=before,
+            auto_paginate=auto_paginate,
         )
 
     def get_balance(self, account_id: str) -> Any:

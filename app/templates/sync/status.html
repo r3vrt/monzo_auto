@@ -40,7 +40,7 @@
                 <!-- Manual Sync Button -->
                 <div class="mb-3">
                     <form method="post" action="{{ url_for('ui.manual_sync', account_id=acc.id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}"/>
                         <button type="submit" class="btn btn-sm btn-primary w-100">
                             <i class="fas fa-sync-alt me-1"></i>Sync Now
                         </button>

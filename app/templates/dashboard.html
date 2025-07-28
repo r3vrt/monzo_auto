@@ -19,17 +19,19 @@
     </div>
 </div>
 
-<div class="row">
+<div class="row g-4">
     {% for page in pages %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100">
-            <div class="card-body text-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center d-flex flex-column">
                 <div class="mb-3">
                     <span style="font-size: 3rem;">{{ page.icon }}</span>
                 </div>
                 <h5 class="card-title">{{ page.name }}</h5>
-                <p class="card-text text-muted">{{ page.description }}</p>
-                <a href="{{ page.url }}" class="btn btn-primary">Go to {{ page.name }}</a>
+                <p class="card-text text-muted flex-grow-1">{{ page.description }}</p>
+                <div class="mt-auto">
+                    <a href="{{ page.url }}" class="btn btn-primary">Go to {{ page.name }}</a>
+                </div>
             </div>
         </div>
     </div>
@@ -43,28 +45,22 @@
                 <h5 class="card-title mb-0">📊 Quick Stats</h5>
             </div>
             <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-md-3">
-                        <div class="border-end">
-                            <h3 class="text-primary" id="accounts-count">-</h3>
-                            <p class="text-muted">Active Accounts</p>
-                        </div>
+                <div class="row text-center g-0">
+                    <div class="col-6 col-md-3 p-3 border-end">
+                        <h3 class="text-primary mb-1" id="accounts-count">-</h3>
+                        <p class="text-muted mb-0 small">Active Accounts</p>
                     </div>
-                    <div class="col-md-3">
-                        <div class="border-end">
-                            <h3 class="text-success" id="pots-count">-</h3>
-                            <p class="text-muted">Total Pots</p>
-                        </div>
+                    <div class="col-6 col-md-3 p-3 border-end">
+                        <h3 class="text-success mb-1" id="pots-count">-</h3>
+                        <p class="text-muted mb-0 small">Total Pots</p>
                     </div>
-                    <div class="col-md-3">
-                        <div class="border-end">
-                            <h3 class="text-info" id="rules-count">-</h3>
-                            <p class="text-muted">Automation Rules</p>
-                        </div>
+                    <div class="col-6 col-md-3 p-3 border-end">
+                        <h3 class="text-info mb-1" id="rules-count">-</h3>
+                        <p class="text-muted mb-0 small">Automation Rules</p>
                     </div>
-                    <div class="col-md-3">
-                        <h3 class="text-warning" id="last-sync">-</h3>
-                        <p class="text-muted">Last Sync</p>
+                    <div class="col-6 col-md-3 p-3">
+                        <h3 class="text-warning mb-1" id="last-sync">-</h3>
+                        <p class="text-muted mb-0 small">Last Sync</p>
                     </div>
                 </div>
             </div>

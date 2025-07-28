@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring Dashboard - Monzo App{% endblock %}
+
+{% block extra_css %}
+<style>
+    .health-status {
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .health-healthy { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .health-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+    .health-critical { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .metric-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .metric-value {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: var(--primary-color);
+        margin-bottom: 5px;
+    }
+    
+    .metric-label {
+        color: #666;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .alerts-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .alert-item {
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+    }
+    
+    .alert-critical { background: #f8d7da; border-left-color: #dc3545; }
+    .alert-warning { background: #fff3cd; border-left-color: #ffc107; }
+    .alert-info { background: #d1ecf1; border-left-color: #17a2b8; }
+    .alert-success { background: #d4edda; border-left-color: #28a745; }
+    
+    .alert-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .alert-message {
+        margin-bottom: 8px;
+        color: #666;
+    }
+    
+    .alert-action {
+        font-size: 0.9em;
+        font-style: italic;
+        color: #555;
+    }
+    
+    .execution-history {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .execution-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    
+    .execution-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .execution-item:last-child {
+        border-bottom: none;
+    }
+    
+    .execution-info {
+        flex: 1;
+    }
+    
+    .execution-name {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+    
+    .execution-details {
+        font-size: 0.9em;
+        color: #666;
+    }
+    
+    .execution-status {
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+    
+    .status-success { background: #d4edda; color: #155724; }
+    .status-failure { background: #f8d7da; color: #721c24; }
+    
+    .execution-time {
+        font-size: 0.8em;
+        color: #999;
+        text-align: right;
+        min-width: 120px;
+    }
+    
+    .refresh-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+    
+    .auto-refresh {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.9em;
+    }
+    
+    .loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+    }
+    
+    .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 10px 0;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .updating {
+        animation: pulse 1.5s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block page_title %}📊 Automation Monitoring{% endblock %}
+{% block page_subtitle %}System health, alerts, and execution history{% endblock %}
+
+{% block content %}
+<div class="refresh-controls">
+    <button class="btn btn-primary" onclick="refreshDashboard()">🔄 Refresh</button>
+    <button class="btn btn-secondary" onclick="toggleAutoRefresh()">⏱️ <span id="auto-refresh-text">Start Auto Refresh</span></button>
+    <div class="auto-refresh">
+        <input type="checkbox" id="auto-refresh-checkbox" onchange="toggleAutoRefresh()">
+        <label for="auto-refresh-checkbox">Auto refresh every 30s</label>
+    </div>
+    <div id="last-updated" class="text-muted" style="margin-left: auto;"></div>
+</div>
+
+<!-- System Health Status -->
+<div id="health-status" class="health-status">
+    <div class="loading">Loading system health...</div>
+</div>
+
+<!-- Metrics Overview -->
+<div class="metrics-grid" id="metrics-grid">
+    <div class="loading">Loading metrics...</div>
+</div>
+
+<!-- Alerts Section -->
+<div class="alerts-section">
+    <h3>🚨 System Alerts</h3>
+    <div id="alerts-container">
+        <div class="loading">Loading alerts...</div>
+    </div>
+</div>
+
+<!-- Execution History -->
+<div class="execution-history">
+    <h3>📋 Recent Execution History (Last 24 Hours)</h3>
+    <div id="execution-history-container">
+        <div class="loading">Loading execution history...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let autoRefreshInterval = null;
+    let isAutoRefreshing = false;
+    
+    // Load dashboard data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardData();
+    });
+    
+    function loadDashboardData() {
+        document.body.classList.add('updating');
+        
+        // Load health data and execution history in parallel
+        Promise.all([
+            loadHealthData(),
+            loadExecutionHistory()
+        ]).then(() => {
+            updateLastUpdatedTime();
+            document.body.classList.remove('updating');
+        }).catch(error => {
+            console.error('Error loading dashboard data:', error);
+            document.body.classList.remove('updating');
+        });
+    }
+    
+    async function loadHealthData() {
+        try {
+            const response = await fetch('/monitoring/api/health');
+            const data = await response.json();
+            
+            if (response.ok) {
+                updateHealthStatus(data);
+                updateMetrics(data.metrics);
+                updateAlerts(data.alerts);
+            } else {
+                showError('health-status', data.error || 'Failed to load health data');
+            }
+        } catch (error) {
+            console.error('Error loading health data:', error);
+            showError('health-status', 'Error loading health data');
+        }
+    }
+    
+    async function loadExecutionHistory() {
+        try {
+            const response = await fetch('/monitoring/api/execution-history');
+            const data = await response.json();
+            
+            if (response.ok) {
+                updateExecutionHistory(data.executions);
+            } else {
+                showError('execution-history-container', data.error || 'Failed to load execution history');
+            }
+        } catch (error) {
+            console.error('Error loading execution history:', error);
+            showError('execution-history-container', 'Error loading execution history');
+        }
+    }
+    
+    function updateHealthStatus(data) {
+        const statusElement = document.getElementById('health-status');
+        const statusClass = `health-${data.status}`;
+        const statusText = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        const statusIcon = data.status === 'healthy' ? '✅' : data.status === 'warning' ? '⚠️' : '🔴';
+        
+        statusElement.className = `health-status ${statusClass}`;
+        statusElement.innerHTML = `${statusIcon} System Status: ${statusText}`;
+    }
+    
+    function updateMetrics(metrics) {
+        const metricsGrid = document.getElementById('metrics-grid');
+        
+        metricsGrid.innerHTML = `
+            <div class="metric-card">
+                <div class="metric-value">${metrics.total_rules}</div>
+                <div class="metric-label">Total Rules</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${metrics.enabled_rules}</div>
+                <div class="metric-label">Enabled Rules</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${metrics.recent_executions_24h}</div>
+                <div class="metric-label">Executions (24h)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${metrics.success_rate_24h}%</div>
+                <div class="metric-label">Success Rate</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">${metrics.failed_executions}</div>
+                <div class="metric-label">Failed Executions</div>
+            </div>
+        `;
+    }
+    
+    function updateAlerts(alerts) {
+        const alertsContainer = document.getElementById('alerts-container');
+        
+        if (alerts.length === 0) {
+            alertsContainer.innerHTML = '<p class="text-muted">No alerts</p>';
+            return;
+        }
+        
+        alertsContainer.innerHTML = alerts.map(alert => `
+            <div class="alert-item alert-${alert.level}">
+                <div class="alert-title">${alert.title}</div>
+                <div class="alert-message">${alert.message}</div>
+                <div class="alert-action">Action: ${alert.action}</div>
+            </div>
+        `).join('');
+    }
+    
+    function updateExecutionHistory(executions) {
+        const historyContainer = document.getElementById('execution-history-container');
+        
+        if (executions.length === 0) {
+            historyContainer.innerHTML = '<p class="text-muted">No recent executions</p>';
+            return;
+        }
+        
+        historyContainer.innerHTML = executions.map(execution => {
+            const statusClass = execution.success ? 'status-success' : 'status-failure';
+            const statusText = execution.success ? '✅ Success' : '❌ Failed';
+            const timeText = execution.executed_at ? 
+                new Date(execution.executed_at).toLocaleString() : 'Unknown';
+            
+            let detailsText = `${execution.rule_type}`;
+            if (execution.amount && execution.success) {
+                detailsText += ` • £${(execution.amount / 100).toFixed(2)}`;
+            }
+            if (execution.total_moved && execution.success) {
+                detailsText += ` • £${(execution.total_moved / 100).toFixed(2)} moved`;
+            }
+            if (execution.error) {
+                detailsText += ` • ${execution.error}`;
+            }
+            
+            return `
+                <div class="execution-item">
+                    <div class="execution-info">
+                        <div class="execution-name">${execution.name}</div>
+                        <div class="execution-details">${detailsText}</div>
+                    </div>
+                    <div class="execution-status ${statusClass}">${statusText}</div>
+                    <div class="execution-time">${timeText}</div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    function showError(elementId, message) {
+        const element = document.getElementById(elementId);
+        element.innerHTML = `<div class="error">Error: ${message}</div>`;
+    }
+    
+    function refreshDashboard() {
+        loadDashboardData();
+    }
+    
+    function toggleAutoRefresh() {
+        const checkbox = document.getElementById('auto-refresh-checkbox');
+        const buttonText = document.getElementById('auto-refresh-text');
+        
+        if (isAutoRefreshing) {
+            // Stop auto refresh
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            isAutoRefreshing = false;
+            checkbox.checked = false;
+            buttonText.textContent = 'Start Auto Refresh';
+        } else {
+            // Start auto refresh
+            autoRefreshInterval = setInterval(loadDashboardData, 30000); // 30 seconds
+            isAutoRefreshing = true;
+            checkbox.checked = true;
+            buttonText.textContent = 'Stop Auto Refresh';
+        }
+    }
+    
+    function updateLastUpdatedTime() {
+        const lastUpdatedElement = document.getElementById('last-updated');
+        const now = new Date();
+        lastUpdatedElement.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    });
+</script>
+{% endblock %} 

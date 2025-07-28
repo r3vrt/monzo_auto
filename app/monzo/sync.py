@@ -18,6 +18,9 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+import sys
+import io
+from contextlib import contextmanager
 
 from sqlalchemy import and_
 
@@ -25,6 +28,34 @@ from app.automation.integration import AutomationIntegration
 from app.models import Account, BillsPotTransaction, Pot, Transaction, User
 
 logger = logging.getLogger(__name__)
+
+@contextmanager
+def capture_monzo_debug_prints():
+    """
+    Context manager to capture stdout prints from monzo library 
+    and redirect them to our logging system.
+    """
+    # Create a custom stdout that captures prints
+    captured_output = io.StringIO()
+    original_stdout = sys.stdout
+    
+    try:
+        # Redirect stdout to capture prints
+        sys.stdout = captured_output
+        yield
+    finally:
+        # Restore original stdout
+        sys.stdout = original_stdout
+        
+        # Process captured output and log it properly
+        output = captured_output.getvalue().strip()
+        if output:
+            for line in output.split('\n'):
+                if line.strip():
+                    if '[DEBUG]' in line:
+                        logger.debug(f"[MONZO_LIB] {line.replace('[DEBUG]', '').strip()}")
+                    else:
+                        logger.info(f"[MONZO_LIB] {line.strip()}")
 
 # Timeout handling for API calls using threading (works in background threads)
 class TimeoutException(Exception):
@@ -213,7 +244,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
     latest_txn = (
         db.query(Transaction)
         .filter_by(account_id=account_id, user_id=user_id_str)
-        .order_by(Transaction.id.desc())
+        .order_by(Transaction.created.desc(), Transaction.id.desc())
         .first()
     )
     first_time = latest_txn is None
@@ -237,13 +268,14 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 f"[SYNC] Pulling transactions for account {account_id} from {start_date.isoformat()} to {now.isoformat()}"
             )
             # Use the fixed library method for pagination
-            transactions = safe_api_call(
-                lambda: monzo.get_transactions(
-                    account_id, 
-                    since=start_date.isoformat()
-                ),
-                timeout_seconds=120
-            )
+            with capture_monzo_debug_prints():
+                transactions = safe_api_call(
+                    lambda: monzo.get_transactions(
+                        account_id, 
+                        since=start_date.isoformat()
+                    ),
+                    timeout_seconds=120
+                )
             logger.info(
                 f"[SYNC] Pulled {len(transactions)} transactions using fixed library pagination"
             )
@@ -315,6 +347,14 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                     logger.info(
                         f"[SYNC] Committed {len(new_transactions)} new transactions to database"
                     )
+                    
+                    # Update latest transaction reference for subsequent operations
+                    # Find the newest transaction we just committed
+                    newest_committed_txn = max(new_transactions, key=lambda t: t.created)
+                    latest_txn_id = newest_committed_txn.id
+                    latest_txn_date = newest_committed_txn.created
+                    logger.info(f"[SYNC] Updated latest transaction reference to: {latest_txn_id} ({latest_txn_date})")
+                    
                 else:
                     logger.info("[SYNC] No new transactions to commit")
                 
@@ -338,6 +378,19 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.info("[SYNC] Database transaction rolled back after error")
             except Exception as rollback_error:
                 logger.error(f"[SYNC] Error during rollback: {rollback_error}")
+
+        # Always update latest transaction reference after sync attempt
+        # Find the actual newest transaction in database (in case of any inconsistencies)
+        actual_latest_txn = (
+            db.query(Transaction)
+            .filter_by(account_id=account_id, user_id=user_id_str)
+            .order_by(Transaction.created.desc(), Transaction.id.desc())
+            .first()
+        )
+        if actual_latest_txn:
+            logger.info(f"[SYNC] Final latest transaction reference: {actual_latest_txn.id} ({actual_latest_txn.created})")
+            latest_txn_id = actual_latest_txn.id
+            latest_txn_date = actual_latest_txn.created
 
         logger.info(f"First-time sync completed for account {account_id}.")
 
@@ -369,22 +422,17 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
 
         
         # Add a reasonable time limit to prevent pulling too much historical data
-        # Use 3 days as a safety limit for incremental syncs to prevent hangs
+        # Use 89 days as the maximum limit for incremental syncs (Monzo API limit)
         # The limit should be relative to the latest transaction, not today
         latest_txn_date = latest_txn.created
-        time_limit = latest_txn_date - timedelta(days=3)
+        time_limit = latest_txn_date - timedelta(days=89)
         time_limit_iso = time_limit.isoformat()
         
-        # Prevent syncing if the latest transaction is too recent (within last 15 minutes)
-        # This prevents rapid-fire API calls that could cause loops
-        # Scheduler runs every 10 minutes, so we need at least 15 minutes cooldown
-        if (now - latest_txn_date).total_seconds() < 900:  # 15 minutes
-            logger.info(f"[SYNC] Latest transaction {latest_txn_id} is too recent (within 15 minutes), skipping sync to prevent loops")
-            return
+        # Note: Removed 15-minute cooldown as pagination issues in library have been fixed
         
         try:
             logger.info(
-                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 3-day limit from latest txn: {time_limit_iso})"
+                f"[SYNC] Pulling transactions for account {account_id} since transaction ID: {latest_txn_id} (with 89-day limit from latest txn: {time_limit_iso})"
             )
             
             # Add debug info about the latest transaction
@@ -396,20 +444,21 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             # We don't need the 3-day limit check here since we're looking for NEWER transactions
             # The API call will only return transactions newer than the latest one
             
-            # Use timestamp-based sync instead of transaction ID to avoid loops
-            # The 'since' parameter with transaction IDs can cause issues if there are no new transactions
-            since_timestamp = (latest_txn_date + timedelta(seconds=1)).isoformat()
-            logger.info(f"[SYNC] Using timestamp-based sync to avoid loops: since={since_timestamp}")
+            # Use transaction ID-based sync for more reliable incremental updates
+            # The pagination issues in the underlying library have been fixed
+            logger.info(f"[SYNC] Using transaction ID-based sync: since={latest_txn_id}")
             
             # Log API call for troubleshooting
-            logger.info(f"[SYNC] Calling Monzo API: account {account_id}, since {since_timestamp}")
+            logger.info(f"[SYNC] Calling Monzo API: account {account_id}, since transaction ID {latest_txn_id}, before {now.isoformat()}")
+            logger.info(f"[SYNC] Enabling auto_paginate=True to fetch ALL transactions beyond first page")
             
-            transactions = safe_api_call(
-                lambda: monzo.get_transactions(
-                    account_id, since=since_timestamp
-                ),
-                timeout_seconds=30
-            )
+            with capture_monzo_debug_prints():
+                transactions = safe_api_call(
+                    lambda: monzo.get_transactions(
+                        account_id, since=latest_txn_id, before=now.isoformat(), auto_paginate=True
+                    ),
+                    timeout_seconds=120  # Increased timeout for auto-pagination
+                )
             
             # Log response summary for troubleshooting
             if transactions:
@@ -421,85 +470,69 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             
             # If no transactions returned, log and exit early to prevent hangs
             if not transactions:
-                logger.info(f"[SYNC] No new transactions found since {since_timestamp}, sync complete")
+                logger.info(f"[SYNC] No new transactions found since {latest_txn_id}, sync complete")
                 return
             
-            # Check if we're getting the same transactions as the latest one (potential loop)
-            if transactions and len(transactions) > 0:
-                first_txn_id = transactions[0].id
-                first_txn_date = transactions[0].created
-                
-                # Check for ID match (direct loop)
-                if first_txn_id == latest_txn_id:
-                    logger.warning(f"[SYNC] Potential loop detected - first transaction ID matches latest: {first_txn_id}")
-                    logger.info(f"[SYNC] Skipping sync to prevent loop")
-                    return
-                
-                # Check for timestamp issues (transactions older than our since timestamp)
-                since_datetime = datetime.fromisoformat(since_timestamp.replace('Z', '+00:00'))
-                if first_txn_date <= since_datetime:
-                    logger.warning(f"[SYNC] Potential loop detected - first transaction date {first_txn_date} is not after since timestamp {since_datetime}")
-                    logger.info(f"[SYNC] Skipping sync to prevent loop")
-                    return
-                
-                # Check if any of these transactions already exist in the database
-                existing_count = 0
-                for txn in transactions:
-                    existing_txn = db.query(Transaction).filter_by(id=txn.id, user_id=user_id_str).first()
-                    if existing_txn:
-                        existing_count += 1
-                
-                if existing_count > 0:
-                    logger.warning(f"[SYNC] Potential loop detected - {existing_count} out of {len(transactions)} transactions already exist in database")
-                    logger.info(f"[SYNC] Skipping sync to prevent loop")
-                    return
+            # Note: Removed complex loop detection as pagination issues in library have been fixed
+            # Basic validation still performed during transaction processing
             
             logger.info(
                 f"[SYNC] Raw API response: {len(transactions)} transactions received"
             )
             
-            # Filter transactions to only include those newer than the latest transaction
-            # and within a reasonable time range (not too old)
+            # First: Check ALL API transactions for database duplicates (before any filtering)
+            api_existing_count = 0
+            api_existing_ids = []
+            api_new_transactions = []
+            
+            for txn in transactions:
+                existing_txn = db.query(Transaction).filter_by(id=txn.id, user_id=user_id_str).first()
+                if existing_txn:
+                    api_existing_count += 1
+                    api_existing_ids.append(txn.id)
+                else:
+                    api_new_transactions.append(txn)
+            
+            logger.info(
+                f"[SYNC] Database check on raw API response: {api_existing_count} already exist, {len(api_new_transactions)} are new"
+            )
+            if api_existing_count > 0:
+                logger.info(f"[SYNC] API returned existing transaction IDs: {api_existing_ids[:5]}{'...' if len(api_existing_ids) > 5 else ''}")
+            
+            # Second: Apply date/ID filtering to the NEW transactions only
             filtered_transactions = [
-                txn for txn in transactions 
-                if txn.created > latest_txn_date  # Must be newer than latest
+                txn for txn in api_new_transactions 
+                if txn.id != latest_txn_id and txn.created > latest_txn_date
             ]
             
-            # Additional safety: limit to max 100 transactions to prevent hangs
-            max_transactions = 100
+            # Debug: count excluded transactions from date filtering
+            excluded_same_id = len([txn for txn in api_new_transactions if txn.id == latest_txn_id])
+            excluded_older = len([txn for txn in api_new_transactions if txn.created <= latest_txn_date and txn.id != latest_txn_id])
+            
+            logger.info(
+                f"[SYNC] Date filtering on new transactions: {len(api_new_transactions)} candidates, {excluded_same_id} same ID, {excluded_older} older, {len(filtered_transactions)} final"
+            )
+            
+            # Additional safety: limit to max 1000 transactions per sync to prevent API abuse
+            max_transactions = 1000
             if len(filtered_transactions) > max_transactions:
                 logger.warning(
-                    f"[SYNC] Limiting transactions from {len(filtered_transactions)} to {max_transactions} to prevent hangs"
+                    f"[SYNC] Limiting transactions from {len(filtered_transactions)} to {max_transactions} to prevent API abuse"
                 )
                 filtered_transactions = filtered_transactions[:max_transactions]
             
-            logger.info(
-                f"[SYNC] Pulled {len(transactions)} transactions, filtered to {len(filtered_transactions)} within 3-day limit"
-            )
-            
             if filtered_transactions:
                 logger.info(
-                    f"[SYNC] First txn: {filtered_transactions[0].id} {filtered_transactions[0].created}, Last txn: {filtered_transactions[-1].id} {filtered_transactions[-1].created}"
+                    f"[SYNC] Final transactions to process: {len(filtered_transactions)}"
                 )
-
-                # Check how many of these transactions already exist in the database
-                existing_count = 0
-                new_transactions = []
-                for txn in filtered_transactions:
-                    if (
-                        db.query(Transaction)
-                        .filter_by(id=txn.id, user_id=user_id_str)
-                        .first()
-                    ):
-                        existing_count += 1
-                    else:
-                        new_transactions.append(txn)
-
                 logger.info(
-                    f"[SYNC] {existing_count} out of {len(filtered_transactions)} transactions already exist in database"
+                    f"[SYNC] First: {filtered_transactions[0].id} {filtered_transactions[0].created}, Last: {filtered_transactions[-1].id} {filtered_transactions[-1].created}"
                 )
 
-                # Only process new transactions
+                # These should all be new since we already filtered out database duplicates
+                new_transactions = filtered_transactions
+
+                # Process the new transactions (already filtered for duplicates and date)
                 if new_transactions:
                     for txn in new_transactions:
                         # Extract pot_account_id from metadata if available
@@ -539,8 +572,29 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                     logger.info(
                         f"[SYNC] Committed {len(new_transactions)} new transactions to database"
                     )
-                else:
-                    logger.info("[SYNC] No new transactions to commit")
+                    
+                    # Update latest transaction reference for subsequent operations
+                    # Find the newest transaction we just committed
+                    newest_committed_txn = max(new_transactions, key=lambda t: t.created)
+                    latest_txn_id = newest_committed_txn.id
+                    latest_txn_date = newest_committed_txn.created
+                    logger.info(f"[SYNC] Updated latest transaction reference to: {latest_txn_id} ({latest_txn_date})")
+                    
+            else:
+                logger.info(f"[SYNC] No transactions to process after filtering. API returned {len(transactions)} total, {api_existing_count} already in database")
+
+            # Always update latest transaction reference after sync attempt
+            # Find the actual newest transaction in database (in case previous syncs didn't update properly)
+            actual_latest_txn = (
+                db.query(Transaction)
+                .filter_by(account_id=account_id, user_id=user_id_str)
+                .order_by(Transaction.created.desc(), Transaction.id.desc())
+                .first()
+            )
+            if actual_latest_txn and actual_latest_txn.id != latest_txn_id:
+                logger.info(f"[SYNC] Updating latest transaction reference from {latest_txn_id} to actual latest: {actual_latest_txn.id} ({actual_latest_txn.created})")
+                latest_txn_id = actual_latest_txn.id
+                latest_txn_date = actual_latest_txn.created
 
             logger.info(f"Incremental sync completed for account {account_id}.")
 
@@ -650,14 +704,15 @@ def sync_bills_pot_transactions(
                     logger.info(
                         f"[SYNC] Pulling bills pot transactions from {current_start.isoformat()} to {current_end.isoformat()}"
                     )
-                    chunk_transactions = safe_api_call(
-                        lambda: monzo.get_transactions(
-                            account_id=pot_account_id, 
-                            since=current_start.isoformat(), 
-                            before=current_end.isoformat()
-                        ),
-                        timeout_seconds=15
-                    )
+                    with capture_monzo_debug_prints():
+                        chunk_transactions = safe_api_call(
+                            lambda: monzo.get_transactions(
+                                account_id=pot_account_id, 
+                                since=current_start.isoformat(), 
+                                before=current_end.isoformat()
+                            ),
+                            timeout_seconds=15
+                        )
                     logger.info(
                         f"[SYNC] Pulled {len(chunk_transactions)} bills pot transactions in this chunk"
                     )
@@ -686,18 +741,19 @@ def sync_bills_pot_transactions(
             
             # Add a reasonable time limit to prevent pulling too much historical data
             now = datetime.now(timezone.utc)
-            time_limit = now - timedelta(days=3)
+            time_limit = now - timedelta(days=89)
             
             logger.info(
-                f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 3-day time limit: {time_limit.isoformat()})"
+                f"[SYNC] Pulling bills pot transactions since transaction ID: {latest_txn_id} (with 89-day time limit: {time_limit.isoformat()})"
             )
             
-            all_transactions = safe_api_call(
-                lambda: monzo.get_transactions(
-                    account_id=pot_account_id, since=latest_txn_id
-                ),
-                timeout_seconds=15
-            )
+            with capture_monzo_debug_prints():
+                all_transactions = safe_api_call(
+                    lambda: monzo.get_transactions(
+                        account_id=pot_account_id, since=latest_txn_id
+                    ),
+                    timeout_seconds=15
+                )
             
             # Filter transactions to only include those within the time limit
             transactions = [
@@ -705,16 +761,16 @@ def sync_bills_pot_transactions(
                 if txn.created >= time_limit
             ]
             
-            # Additional safety: limit to max 50 transactions to prevent hangs
-            max_transactions = 50
+            # Additional safety: limit to max 500 transactions per sync to prevent API abuse
+            max_transactions = 500
             if len(transactions) > max_transactions:
                 logger.warning(
-                    f"[SYNC] Limiting bills pot transactions from {len(transactions)} to {max_transactions} to prevent hangs"
+                    f"[SYNC] Limiting bills pot transactions from {len(transactions)} to {max_transactions} to prevent API abuse"
                 )
                 transactions = transactions[:max_transactions]
             
             logger.info(
-                f"[SYNC] Pulled {len(all_transactions)} bills pot transactions, filtered to {len(transactions)} within 3-day limit"
+                f"[SYNC] Pulled {len(all_transactions)} bills pot transactions, filtered to {len(transactions)} within 89-day limit"
             )
 
         logger.info(
