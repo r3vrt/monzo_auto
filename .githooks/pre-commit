@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Pre-commit hook to prevent committing code with debug mode enabled
+# This ensures production safety by catching debug settings before they reach git
+
+echo "🔍 Checking for debug settings..."
+
+# Check for hardcoded debug=True in Python files
+debug_issues=()
+
+# Check for Flask debug=True
+if git diff --cached --name-only | grep -E '\.(py)$' | xargs grep -l "debug=True" 2>/dev/null; then
+    debug_issues+=("❌ Found hardcoded debug=True in Python files")
+fi
+
+# Check for hardcoded DEBUG logging levels in default configs
+if git diff --cached --name-only | grep -E 'logging_config\.py$' | xargs grep -l 'DEBUG.*=' 2>/dev/null; then
+    # Only flag if it's in the default values, not in the validation lists
+    if git diff --cached | grep -E '^\+.*level.*=.*"DEBUG"'; then
+        debug_issues+=("❌ Found hardcoded DEBUG logging level in config defaults")
+    fi
+fi
+
+# Check for print statements (debug pollution)
+staged_files=$(git diff --cached --name-only | grep -E '\.(py)$')
+if [ -n "$staged_files" ]; then
+    if echo "$staged_files" | xargs grep -l "print(" 2>/dev/null; then
+        # Allow print in specific files where it's expected
+        allowed_print_files="monitor_logs.py"
+        disallowed_prints=$(echo "$staged_files" | xargs grep -l "print(" 2>/dev/null | grep -v -E "(${allowed_print_files})")
+        if [ -n "$disallowed_prints" ]; then
+            debug_issues+=("⚠️  Found print() statements in: $disallowed_prints")
+        fi
+    fi
+fi
+
+# Check for console.log in JS/HTML files
+if git diff --cached --name-only | grep -E '\.(js|html)$' | xargs grep -l "console\.log" 2>/dev/null; then
+    debug_issues+=("⚠️  Found console.log statements in JavaScript/HTML files")
+fi
+
+# Report issues
+if [ ${#debug_issues[@]} -gt 0 ]; then
+    echo ""
+    echo "🚫 COMMIT BLOCKED: Debug settings detected!"
+    echo "================================================"
+    for issue in "${debug_issues[@]}"; do
+        echo "$issue"
+    done
+    echo ""
+    echo "💡 To fix:"
+    echo "  • Use FLASK_DEBUG=true environment variable instead of debug=True"
+    echo "  • Use LOG_*_LEVEL=DEBUG environment variables instead of hardcoded defaults"
+    echo "  • Remove print() statements (use logger instead)"
+    echo "  • Remove console.log statements"
+    echo ""
+    echo "✅ For development, set environment variables:"
+    echo "  export FLASK_DEBUG=true"
+    echo "  export LOG_MONZO_SYNC_LEVEL=DEBUG"
+    echo ""
+    exit 1
+fi
+
+# All checks passed
+echo "✅ No debug settings found - commit allowed"
+echo "🚀 Code is production-ready!"
+exit 0 

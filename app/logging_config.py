@@ -19,8 +19,8 @@ class LoggingConfig:
     """Configuration for logging levels."""
     root_level: str = "INFO"
     app_level: str = "INFO"
-    monzo_client_level: str = "DEBUG"
-    monzo_sync_level: str = "DEBUG"
+    monzo_client_level: str = "INFO"
+    monzo_sync_level: str = "INFO"
     automation_level: str = "INFO"
     scheduler_level: str = "INFO"
     urllib3_level: str = "WARNING"
@@ -37,7 +37,7 @@ class LoggingManager:
         self._configure_logging()
     
     def _load_config(self) -> LoggingConfig:
-        """Load logging configuration from environment variables."""
+        """Load logging configuration from environment variables with production-safe defaults."""
         return LoggingConfig(
             root_level=os.getenv("LOG_ROOT_LEVEL", "INFO"),
             app_level=os.getenv("LOG_APP_LEVEL", "INFO"),

@@ -186,7 +186,7 @@ def accounts_select_post():
         db.commit()
         # Trigger sync for these accounts
         accounts_api = {a.id: a for a in monzo.get_accounts()}
-        logger.info(f"[DEBUG] Monzo API returned accounts: {list(accounts_api.keys())}")
+        logger.debug(f"Monzo API returned accounts: {list(accounts_api.keys())}")
         errors = []
         for acc_id in selected_account_ids:
             try:
@@ -194,8 +194,8 @@ def accounts_select_post():
                 acc = db.query(Account).filter_by(id=acc_id, user_id=user_id).first()
                 api_acc = accounts_api.get(acc_id)
                 if acc is not None and api_acc is not None:
-                    logger.info(
-                        f"[DEBUG] Updating account {acc_id} with Monzo API data: {api_acc.description}, {api_acc.type}"
+                    logger.debug(
+                        f"Updating account {acc_id} with Monzo API data: {api_acc.description}, {api_acc.type}"
                     )
                     if acc.description is None or acc.description == "":
                         acc.description = api_acc.description
@@ -204,7 +204,7 @@ def accounts_select_post():
                     acc.updated_at = getattr(
                         api_acc, "updated_at", datetime.now(timezone.utc)
                     )
-                logger.info(f"[DEBUG] Syncing account {acc_id}")
+                logger.debug(f"Syncing account {acc_id}")
                 sync_account_data(db, str(acc.user_id), str(acc.id), monzo)
             except Exception as e:
                 logger.error(f"[ERROR] Failed to sync account {acc_id}: {e}")
@@ -254,15 +254,15 @@ def accounts_add():
         db.commit()
         # Trigger sync for these new accounts
         accounts_api = {a.id: a for a in monzo.get_accounts()}
-        logger.info(f"[DEBUG] Monzo API returned accounts: {list(accounts_api.keys())}")
+        logger.debug(f"Monzo API returned accounts: {list(accounts_api.keys())}")
         errors = []
         for acc_id in add_account_ids:
             try:
                 acc = db.query(Account).filter_by(id=acc_id, user_id=user_id).first()
                 api_acc = accounts_api.get(acc_id)
                 if acc is not None and api_acc is not None:
-                    logger.info(
-                        f"[DEBUG] Updating account {acc_id} with Monzo API data: {api_acc.description}, {api_acc.type}"
+                    logger.debug(
+                        f"Updating account {acc_id} with Monzo API data: {api_acc.description}, {api_acc.type}"
                     )
                     if acc.description is None or acc.description == "":
                         acc.description = api_acc.description
@@ -271,7 +271,7 @@ def accounts_add():
                     acc.updated_at = getattr(
                         api_acc, "updated_at", datetime.now(timezone.utc)
                     )
-                logger.info(f"[DEBUG] Syncing account {acc_id}")
+                logger.debug(f"Syncing account {acc_id}")
                 sync_account_data(db, str(acc.user_id), str(acc.id), monzo)
             except Exception as e:
                 logger.error(f"[ERROR] Failed to sync account {acc_id}: {e}")
