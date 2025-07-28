@@ -118,7 +118,17 @@ def validate_request_json(schema_class: type, data: Optional[Dict[str, Any]]) ->
     
     schema = schema_class()
     try:
-        return schema.load(data)
+        validated_data = schema.load(data)
+        
+        # Handle default values for compatibility
+        if schema_class == AccountSelectSchema:
+            if 'account_names' not in validated_data or validated_data['account_names'] is None:
+                validated_data['account_names'] = {}
+        elif schema_class == AutomationRuleCreateSchema:
+            if 'enabled' not in validated_data or validated_data['enabled'] is None:
+                validated_data['enabled'] = True
+                
+        return validated_data
     except ValidationError as e:
         # Log the validation error for security monitoring
         import logging
