@@ -49,14 +49,8 @@ def sync_status():
         accounts = db.query(Account).filter_by(is_active=True).all()
         sync_info = []
         for acc in accounts:
-            # Get latest transaction timestamp as last sync time
-            latest_txn = (
-                db.query(Transaction)
-                .filter_by(account_id=acc.id, user_id=acc.user_id)
-                .order_by(Transaction.id.desc())
-                .first()
-            )
-            last_synced_at = latest_txn.created if latest_txn else None
+            # Use the account's last_synced_at field for accurate sync tracking
+            last_synced_at = acc.last_synced_at
 
             # Get last 5 transactions
             txns = (

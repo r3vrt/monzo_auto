@@ -79,6 +79,11 @@ class Account(Base):
         default=False,
         doc="True = syncing/imported, False = not synced",
     )
+    last_synced_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Timestamp of the last successful sync for this account",
+    )
 
     def __repr__(self) -> str:
         return f"<Account id={self.id} description={self.description} type={self.type} closed={self.closed}>"

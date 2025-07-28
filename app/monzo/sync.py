@@ -392,6 +392,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
             latest_txn_id = actual_latest_txn.id
             latest_txn_date = actual_latest_txn.created
 
+        # Update last sync timestamp for account
+        account = db.query(Account).filter_by(id=account_id, user_id=user_id_str).first()
+        if account:
+            account.last_synced_at = datetime.now(timezone.utc)
+            db.commit()
+            logger.info(f"[SYNC] Updated last_synced_at for account {account_id}")
+
         logger.info(f"First-time sync completed for account {account_id}.")
 
         # Trigger automation after successful first-time sync
@@ -595,6 +602,13 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 logger.info(f"[SYNC] Updating latest transaction reference from {latest_txn_id} to actual latest: {actual_latest_txn.id} ({actual_latest_txn.created})")
                 latest_txn_id = actual_latest_txn.id
                 latest_txn_date = actual_latest_txn.created
+
+            # Update last sync timestamp for account
+            account = db.query(Account).filter_by(id=account_id, user_id=user_id_str).first()
+            if account:
+                account.last_synced_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.info(f"[SYNC] Updated last_synced_at for account {account_id}")
 
             logger.info(f"Incremental sync completed for account {account_id}.")
 

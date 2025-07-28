@@ -1082,14 +1082,15 @@ def get_sync_status():
             )
 
         user_id = monzo.tokens.get("user_id")
-        # Get the latest transaction timestamp as last sync time
-        latest_txn = (
-            db.query(Transaction)
-            .filter_by(user_id=user_id)
-            .order_by(Transaction.id.desc())
+        # Get the most recent sync time across all accounts
+        latest_account = (
+            db.query(Account)
+            .filter_by(user_id=user_id, is_active=True)
+            .filter(Account.last_synced_at.isnot(None))
+            .order_by(Account.last_synced_at.desc())
             .first()
         )
-        last_sync = latest_txn.created.isoformat() if latest_txn else None
+        last_sync = latest_account.last_synced_at.isoformat() if latest_account else None
 
         return jsonify({"last_sync": last_sync, "status": "ok"})
 

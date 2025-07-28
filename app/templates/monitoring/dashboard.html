@@ -301,11 +301,11 @@
                 <div class="metric-label">Enabled Rules</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.recent_executions_24h}</div>
+                <div class="metric-value">${metrics.recent_executions}</div>
                 <div class="metric-label">Executions (24h)</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${metrics.success_rate_24h}%</div>
+                <div class="metric-value">${metrics.success_rate}%</div>
                 <div class="metric-label">Success Rate</div>
             </div>
             <div class="metric-card">
@@ -324,7 +324,7 @@
         }
         
         alertsContainer.innerHTML = alerts.map(alert => `
-            <div class="alert-item alert-${alert.level}">
+            <div class="alert-item alert-${alert.type}">
                 <div class="alert-title">${alert.title}</div>
                 <div class="alert-message">${alert.message}</div>
                 <div class="alert-action">Action: ${alert.action}</div>
@@ -341,26 +341,30 @@
         }
         
         historyContainer.innerHTML = executions.map(execution => {
-            const statusClass = execution.success ? 'status-success' : 'status-failure';
-            const statusText = execution.success ? '✅ Success' : '❌ Failed';
+            const isSuccess = execution.status === 'success' || execution.status === 'completed';
+            const statusClass = isSuccess ? 'status-success' : 'status-failure';
+            const statusText = isSuccess ? '✅ Success' : '❌ Failed';
             const timeText = execution.executed_at ? 
                 new Date(execution.executed_at).toLocaleString() : 'Unknown';
             
             let detailsText = `${execution.rule_type}`;
-            if (execution.amount && execution.success) {
-                detailsText += ` • £${(execution.amount / 100).toFixed(2)}`;
+            if (execution.duration_ms) {
+                detailsText += ` • ${execution.duration_ms}ms`;
             }
-            if (execution.total_moved && execution.success) {
-                detailsText += ` • £${(execution.total_moved / 100).toFixed(2)} moved`;
+            if (execution.result && execution.result !== 'No details available') {
+                detailsText += ` • ${execution.result}`;
             }
             if (execution.error) {
-                detailsText += ` • ${execution.error}`;
+                detailsText += ` • Error: ${execution.error}`;
+            }
+            if (!execution.enabled) {
+                detailsText += ` • (Disabled)`;
             }
             
             return `
                 <div class="execution-item">
                     <div class="execution-info">
-                        <div class="execution-name">${execution.name}</div>
+                        <div class="execution-name">${execution.rule_name}</div>
                         <div class="execution-details">${detailsText}</div>
                     </div>
                     <div class="execution-status ${statusClass}">${statusText}</div>
