@@ -192,10 +192,14 @@ class BillsPotLogic:
         """
         Get bills spending for the current pay cycle.
 
+        This computes the period as: from the most recent payday (pay_day) up to now.
+        For example, if today is Aug 10 and pay_day is 25, the window is Jul 25 → Aug 10.
+        If today is Aug 28 and pay_day is 25, the window is Aug 25 → Aug 28.
+
         Args:
             user_id: Monzo user ID
             pay_day: Day of month for pay day (default 25th)
-            days_before_pay: Days to look back from pay day (default 30)
+            days_before_pay: (Unused) kept for backward compatibility
 
         Returns:
             Dict[str, int]: Dictionary with pot_id as key and pay cycle spending as value
@@ -203,26 +207,20 @@ class BillsPotLogic:
         try:
             today = datetime.now()
 
-            # Calculate pay cycle dates
+            # Determine the most recent payday date
             if today.day >= pay_day:
-                # This month's pay cycle
-                cycle_start = today.replace(day=pay_day) - timedelta(
-                    days=days_before_pay
-                )
-                cycle_end = today.replace(day=pay_day)
+                # Most recent payday is this month
+                cycle_start = today.replace(day=pay_day)
             else:
-                # Previous month's pay cycle
+                # Most recent payday was last month
                 if today.month == 1:
-                    prev_month = today.replace(
-                        year=today.year - 1, month=12, day=pay_day
-                    )
+                    cycle_start = today.replace(year=today.year - 1, month=12, day=pay_day)
                 else:
-                    prev_month = today.replace(month=today.month - 1, day=pay_day)
+                    cycle_start = today.replace(month=today.month - 1, day=pay_day)
 
-                cycle_start = prev_month - timedelta(days=days_before_pay)
-                cycle_end = prev_month
+            cycle_end = today  # Up to "now"
 
-            logger.info(f"Pay cycle: {cycle_start.date()} to {cycle_end.date()}")
+            logger.info(f"Pay cycle (most recent payday to now): {cycle_start} → {cycle_end}")
 
             return self.get_bills_spending(user_id, cycle_start, cycle_end)
 

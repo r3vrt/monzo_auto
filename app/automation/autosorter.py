@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Account, BillsPotTransaction, Pot, Transaction, User
 from app.monzo.client import MonzoClient
-from .sync_utils import trigger_account_sync
+from .sync_utils import trigger_account_sync, trigger_bills_pot_transactions_sync
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +297,17 @@ class Autosorter:
 
             # Trigger account sync to ensure we have latest balance information
             self._sync_account_data(user_id)
+
+            # Ensure bills pot transactions are synced before calculating spending
+            if config.bills_pot_id:
+                try:
+                    synced = trigger_bills_pot_transactions_sync(
+                        self.db, self.monzo_client, user_id, config.bills_pot_id, module_name="autosorter"
+                    )
+                    if not synced:
+                        logger.warning("[AUTOSORTER] Bills pot transaction sync did not complete successfully; proceeding with existing data")
+                except Exception as e:
+                    logger.error(f"[AUTOSORTER] Error syncing bills pot transactions: {e}")
 
             # Get current holding pot balance
             holding_balance = self._get_pot_balance(config.holding_pot_id)

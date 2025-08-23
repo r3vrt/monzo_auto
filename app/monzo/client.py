@@ -177,11 +177,28 @@ class MonzoClient:
         """
         return self._with_token_refresh(self.client.get_accounts)
 
-    def get_pots(self, account_id: str) -> List[Any]:
+    def get_pots(self, account_id: Optional[str]) -> List[Any]:
         """
-        Returns a list of pots for the given account (Pot objects).
+        Returns a list of pots. If account_id is None, fetch pots for all user accounts.
         Automatically refreshes token if needed.
         """
+        # If no account specified, aggregate pots from all (open) accounts
+        if not account_id:
+            pots: List[Any] = []
+            accounts = self.get_accounts()
+            for acc in accounts:
+                try:
+                    if getattr(acc, "closed", False):
+                        continue
+                    # Call underlying client with positional account_id arg
+                    acc_pots = self._with_token_refresh(self.client.get_pots, acc.id)
+                    pots.extend(acc_pots or [])
+                except Exception as e:
+                    logger.error(f"Error fetching pots for account {getattr(acc,'id','?')}: {e}")
+                    continue
+            return pots
+        
+        # Single account mode
         return self._with_token_refresh(self.client.get_pots, account_id)
 
     def get_transactions(

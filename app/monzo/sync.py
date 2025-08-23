@@ -29,6 +29,85 @@ from app.models import Account, BillsPotTransaction, Pot, Transaction, User
 
 logger = logging.getLogger(__name__)
 
+# Helpers to robustly parse transaction metadata and extract pot account id
+
+def _parse_metadata_to_dict(metadata: Any) -> dict:
+    try:
+        if metadata is None:
+            return {}
+        if isinstance(metadata, dict):
+            return metadata
+        if isinstance(metadata, str):
+            try:
+                return ast.literal_eval(metadata)
+            except Exception:
+                return {}
+        return {}
+    except Exception:
+        return {}
+
+
+def _extract_pot_account_id_from_metadata(metadata_dict: dict, pot_id: str | None = None) -> str | None:
+    """Try multiple keys commonly seen in Monzo txn metadata to find the pot's account id."""
+    if not isinstance(metadata_dict, dict):
+        return None
+    # If a specific pot_id is supplied, prefer metadata entries that reference that pot
+    md_pot_id = metadata_dict.get("pot_id") or metadata_dict.get("pot")
+    if pot_id and md_pot_id and str(md_pot_id) != str(pot_id):
+        # This metadata isn't about the bills pot we're looking for
+        pass  # continue checking generic keys below
+    # Candidate keys for the account that backed the pot at transaction time
+    candidate_keys = [
+        "pot_account_id",  # often present
+        "current_account_id",  # seen in some clients
+        "pot_current_id",  # custom propagation
+        "account_id",  # sometimes present in pot transfers
+    ]
+    for key in candidate_keys:
+        val = metadata_dict.get(key)
+        if isinstance(val, str) and val.startswith("acc_"):
+            return val
+    return None
+
+
+def _find_pot_account_id_from_transactions(db, user_id: str, pot_id: str) -> str | None:
+    """Scan recent transactions for metadata referencing the bills pot and extract pot account id."""
+    try:
+        # Look for transactions whose metadata string mentions the pot_id
+        candidates = (
+            db.query(Transaction)
+            .filter_by(user_id=user_id)
+            .filter(Transaction.txn_metadata.ilike(f"%{pot_id}%"))
+            .order_by(Transaction.created.desc())
+            .limit(500)
+            .all()
+        )
+        for txn in candidates:
+            md = _parse_metadata_to_dict(txn.txn_metadata)
+            # Prefer explicit pot match
+            if str(md.get("pot_id")) == str(pot_id):
+                acc_id = _extract_pot_account_id_from_metadata(md, pot_id)
+                if acc_id:
+                    return acc_id
+        # Fallback: scan a few recent transactions for any pot account id hint
+        fallback_txns = (
+            db.query(Transaction)
+            .filter_by(user_id=user_id)
+            .order_by(Transaction.created.desc())
+            .limit(200)
+            .all()
+        )
+        for txn in fallback_txns:
+            md = _parse_metadata_to_dict(txn.txn_metadata)
+            acc_id = _extract_pot_account_id_from_metadata(md)
+            if acc_id:
+                return acc_id
+        return None
+    except Exception as e:
+        logger.error(f"[SYNC] Error scanning transactions for pot_account_id: {e}")
+        return None
+
+
 @contextmanager
 def capture_monzo_debug_prints():
     """
@@ -200,7 +279,19 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                     db_pot.created = pot.created
                     db_pot.updated = pot.updated
                     db_pot.deleted = 0
-                    db_pot.pot_current_id = getattr(pot, "pot_current_id", None)
+                    # Robustly capture pot_current_id from API and, if missing, from recent txn metadata
+                    _pot_current = (
+                        getattr(pot, "pot_current_id", None)
+                        or getattr(pot, "current_account_id", None)
+                        or getattr(pot, "pot_account_id", None)
+                        or db_pot.pot_current_id
+                    )
+                    if not _pot_current:
+                        derived = _find_pot_account_id_from_transactions(db, user_id_str, pot.id)
+                        if derived:
+                            _pot_current = derived
+                            logger.info(f"[SYNC] Derived pot_current_id for pot {pot.id} from txn metadata: {_pot_current}")
+                    db_pot.pot_current_id = _pot_current
                     # Sync goal_amount from API to goal field in database
                     goal_amount = getattr(pot, "goal_amount", None)
                     if goal_amount is not None:
@@ -208,7 +299,18 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                 else:
                     # Create new pot
                     logger.debug(f"[SYNC] Creating new pot: {pot.id} - {pot.name}")
+                    # Get goal_amount from API
                     goal_amount = getattr(pot, "goal_amount", None)
+                    _pot_current = (
+                        getattr(pot, "pot_current_id", None)
+                        or getattr(pot, "current_account_id", None)
+                        or getattr(pot, "pot_account_id", None)
+                    )
+                    if not _pot_current:
+                        derived = _find_pot_account_id_from_transactions(db, user_id_str, pot.id)
+                        if derived:
+                            _pot_current = derived
+                            logger.info(f"[SYNC] Derived pot_current_id for new pot {pot.id} from txn metadata: {_pot_current}")
                     db_pot = Pot(
                         id=pot.id,
                         account_id=account_id,
@@ -220,7 +322,7 @@ def sync_account_data(db, user_id: int, account_id: str, monzo: Any) -> None:
                         created=pot.created,
                         updated=pot.updated,
                         deleted=0,
-                        pot_current_id=getattr(pot, "pot_current_id", None),
+                        pot_current_id=_pot_current,
                         goal=goal_amount if goal_amount is not None else 0,
                     )
                     db.add(db_pot)

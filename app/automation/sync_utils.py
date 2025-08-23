@@ -99,4 +99,43 @@ def trigger_account_sync(db: Session, monzo_client: Any, user_id: str, module_na
         
     except Exception as e:
         logger.error(f"[{module_name.upper()}] Error during account sync: {e}")
-        db.rollback() 
+        db.rollback()
+
+
+def trigger_bills_pot_transactions_sync(
+    db: Session,
+    monzo_client: Any,
+    user_id: str,
+    bills_pot_id: str,
+    module_name: str = "automation",
+) -> bool:
+    """
+    Trigger a sync of bills pot transactions to ensure BillsPotTransaction table is up to date.
+    Uses a lazy import to avoid circular dependencies.
+    
+    Args:
+        db: Database session
+        monzo_client: Authenticated Monzo client
+        user_id: Monzo user ID
+        bills_pot_id: Bills pot ID to sync
+        module_name: For logging context
+    
+    Returns:
+        bool: True if sync succeeded, False otherwise
+    """
+    try:
+        logger.info(f"[{module_name.upper()}] Syncing bills pot transactions for pot {bills_pot_id}")
+        from app.monzo.sync import sync_bills_pot_transactions  # Lazy import
+        success = sync_bills_pot_transactions(db, user_id, bills_pot_id, monzo_client)
+        if success:
+            logger.info(f"[{module_name.upper()}] Bills pot transactions synced for pot {bills_pot_id}")
+        else:
+            logger.warning(f"[{module_name.upper()}] Bills pot transaction sync returned False for pot {bills_pot_id}")
+        return success
+    except Exception as e:
+        logger.error(f"[{module_name.upper()}] Error syncing bills pot transactions for pot {bills_pot_id}: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return False 

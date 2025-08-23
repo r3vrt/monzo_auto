@@ -97,3 +97,13 @@ Thumbs.db
 
 # Security documentation (contains sensitive vulnerability info)
 SECURITY_TODO.md
+
+# Local documentation (untracked)
+ARCHITECTURE_IMPROVEMENTS.md
+PERFORMANCE_NOTES.md
+LOCAL_TODO.md
+notes/
+*.notes.md
+
+# ignore scripts directory
+scripts/
